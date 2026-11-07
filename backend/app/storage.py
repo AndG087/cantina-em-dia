@@ -4,8 +4,9 @@ import re
 from pathlib import Path
 
 from fastapi import HTTPException
+from .config import settings
 
-DATA_ROOT = Path(os.environ.get('CANTINA_DATA_DIR', Path(os.environ.get('LOCALAPPDATA', Path.home())) / 'CantinaEmDia')).resolve()
+DATA_ROOT = Path(settings.cantina_data_dir or Path(os.environ.get('LOCALAPPDATA', Path.home())) / 'CantinaEmDia').resolve()
 
 
 def directory(name: str) -> Path:

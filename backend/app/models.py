@@ -439,3 +439,7 @@ class BackupRecord(Base):
     size_bytes: Mapped[int]
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    snapshot_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    label: Mapped[str] = mapped_column(String(180), default='', server_default='')
+    last_restore_database: Mapped[str | None] = mapped_column(String(64))
+    last_restored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

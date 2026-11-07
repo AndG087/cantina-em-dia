@@ -24,7 +24,7 @@ def isolated_test_database():
         with Session(bind=connection, join_transaction_mode="create_savepoint", expire_on_commit=False) as session:
             yield session
     app.dependency_overrides[get_session] = override
-    yield
+    yield connection
     app.dependency_overrides.clear()
     transaction.rollback()
     connection.close()

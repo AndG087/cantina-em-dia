@@ -11,7 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from .config import ROOT, settings
+from .config import ROOT, settings, APP_VERSION
 from .database import engine, get_session
 from .models import AppSettings
 from .schemas import SettingsRead, SettingsUpdate
@@ -23,10 +23,11 @@ from .production import router as production_router
 from .reports import router as reports_router
 from .imports import router as imports_router
 from .attachments import router as attachments_router
+from .backups import router as backups_router
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 
-app = FastAPI(title="Cantina em Dia", version="0.2.0")
+app = FastAPI(title="Cantina em Dia", version=APP_VERSION)
 app.add_middleware(
     TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"]
 )
@@ -46,6 +47,16 @@ app.include_router(production_router)
 app.include_router(reports_router)
 app.include_router(imports_router)
 app.include_router(attachments_router)
+app.include_router(backups_router)
+
+
+@app.middleware('http')
+async def protect_local_mutations(request, call_next):
+    origin = request.headers.get('origin')
+    allowed = {f'http://{host}:{port}' for host in ['localhost', '127.0.0.1'] for port in [settings.web_port, settings.api_port]}
+    if request.method in {'POST', 'PUT', 'PATCH', 'DELETE'} and origin and origin not in allowed:
+        return JSONResponse(status_code=403, content={'detail': 'Origem não autorizada para alterar os dados locais.'})
+    return await call_next(request)
 DOCUMENTS = {
     "projeto": ("Projeto de gestão", "PROJETO_GESTAO_CANTINA.md", "Operação, responsabilidades e plano de implantação."),
     "sistema": ("Especificação do sistema", "ESPECIFICACAO_SISTEMA_PYTHON.md", "Requisitos do aplicativo e regras dos controles."),
@@ -67,7 +78,7 @@ async def database_error_handler(request, exc):
 @app.get("/api/health")
 def health():
     """Verifica o processo da API, sem afirmar que o banco está disponível."""
-    return {"status": "ok", "service": "Cantina em Dia", "version": "0.2.0"}
+    return {"status": "ok", "service": "Cantina em Dia", "version": APP_VERSION}
 
 
 @app.get("/api/health/database")

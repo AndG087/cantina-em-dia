@@ -9,7 +9,8 @@ def test_health_checks_real_postgres_and_migration(client):
     response = client.get("/api/health/database")
     assert response.status_code == 200
     assert response.json()["database"] == "cantina_em_dia_test"
-    assert response.json()["migration"].startswith("000")
+    from app.backups import head_revision
+    assert response.json()["migration"] == head_revision()
 
 
 def test_settings_saved_to_postgres_and_read_again(client):

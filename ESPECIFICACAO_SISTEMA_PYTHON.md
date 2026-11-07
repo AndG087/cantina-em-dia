@@ -1,6 +1,6 @@
 # Sistema local de gestão da cantina em Python
 
-Especificação inicial de 7 de novembro de 2026. Requisitos de negócio ainda em levantamento. Em `C:\dev\cantina-em-dia`, as etapas 1 a 7 e a importação CSV já foram implementadas. Anexos, backup/restauração e integrações automáticas continuam pendentes. Consulte `ESTADO_DO_PROJETO.md` para o estado atualizado; as seções abaixo descrevem os requisitos, não uma lista de funcionalidades integralmente concluídas.
+Especificação inicial de 7 de novembro de 2026. Requisitos de negócio ainda em levantamento. Em `C:\dev\cantina-em-dia`, as etapas 1 a 8 já foram implementadas, incluindo CSV assistido, anexos e backup com restauração verificada em outro banco. Integrações automáticas e validação com dados reais continuam pendentes. Consulte `ESTADO_DO_PROJETO.md` para o estado atualizado; as seções abaixo descrevem os requisitos, não uma lista de funcionalidades integralmente concluídas.
 
 ## 1. Uso esperado
 

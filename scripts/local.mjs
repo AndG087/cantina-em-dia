@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import net from 'node:net';
 import path from 'node:path';
-import { config, ensurePostgres, migrate, root, python, exists } from './common.mjs';
+import { config, ensurePostgres, migrate, root, python, exists, run } from './common.mjs';
 
 const children = [];
 let stopDatabase = async () => {};
@@ -56,6 +56,10 @@ try {
   stopDatabase = await ensurePostgres(cfg);
   const env = { ...cfg.values, PYTHONUNBUFFERED: '1', PYTHONUTF8: '1' };
   await migrate(env);
+  if (!/^(0|false|off|no|n|f)$/i.test(String(cfg.values.CANTINA_AUTO_BACKUP || '1'))) {
+    try { await run(python, ['-m', 'app.backup_cli', 'create', '--if-due'], { cwd: path.join(root, 'backend'), env }); }
+    catch { console.warn('O backup diário não foi concluído. Verifique a tela Backup e recuperação. A aplicação continuará disponível.'); }
+  }
   launch(python, ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', String(cfg.apiPort)], path.join(root, 'backend'), env);
   await waitFor(`http://127.0.0.1:${cfg.apiPort}/api/health/database`);
   launch(process.execPath, [path.join(root, 'frontend/node_modules/vite/bin/vite.js'), '--host', '127.0.0.1', '--port', String(cfg.webPort), '--strictPort'], path.join(root, 'frontend'), { ...env, API_PORT: String(cfg.apiPort) });

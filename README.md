@@ -2,7 +2,7 @@
 
 Sistema local de gestão da cantina do Senai em Paulista, desenvolvido por etapas com Python, React e PostgreSQL.
 
-## O que funciona nesta versão (0.2.0)
+## O que funciona nesta versão (0.3.0)
 
 - Painel com vendas, despesas, responsável pelo caixa, estoque e pendências registrados.
 - Equipe, escalas semanais, substituições pontuais, feriados e confirmação de responsabilidade.
@@ -15,10 +15,11 @@ Sistema local de gestão da cantina do Senai em Paulista, desenvolvido por etapa
 - Relatórios mensais, exportação CSV, metas por base acordada e apurações preservadas.
 - Importação de CSV com seleção de colunas, prévia, validação transacional e proteção contra duplicidade.
 - Comprovantes em PDF, imagem, texto ou áudio, com caixa de recebidos, vinculação, verificação de integridade e arquivamento reversível.
+- Backup dos registros e anexos, cópia diária na inicialização, teste de recuperação e restauração em outro banco.
 - Consulta dos documentos e configurações persistidas no PostgreSQL.
 - Inicialização local do banco, migrações, API e interface por um comando.
 
-As etapas 1 a 7, a importação CSV e os anexos estão implementados. Backup e restauração ainda estão em implementação. Nenhum dado de demonstração foi inserido no banco operacional.
+As etapas 1 a 8 estão implementadas, incluindo CSV, anexos e backup/restauração. A validação com dados reais e as regras pendentes da família continuam necessárias. Nenhum dado de demonstração foi inserido no banco operacional.
 
 O desenvolvimento foi retomado a pedido do usuário. Consulte `ESTADO_DO_PROJETO.md` para acompanhar as entregas e verificações.
 
@@ -60,7 +61,7 @@ Na primeira execução, o inicializador gera uma senha aleatória em `.env`, arq
 %LOCALAPPDATA%\CantinaEmDia\postgres
 ```
 
-Isso mantém o banco fora do OneDrive. Remover o repositório não remove esse diretório. Preserve o `.env`, pois a senha existente precisa corresponder ao banco já criado. Não copie os arquivos de um PostgreSQL ativo como se fossem um backup consistente; o fluxo de backup e restauração será desenvolvido antes do uso operacional.
+Isso mantém o banco fora do OneDrive. Remover o repositório não remove esse diretório. Preserve o `.env`, pois a senha existente precisa corresponder ao banco já criado. Para uma cópia consistente, use **Backup e recuperação**, conforme o procedimento abaixo.
 
 Os registros operacionais e suas trilhas de alteração ficam no PostgreSQL. A aplicação atende apenas em `127.0.0.1`, para uso pessoal neste computador. Acesso por outros dispositivos e autenticação ainda não fazem parte desta versão.
 
@@ -84,7 +85,7 @@ npm.cmd run build
 npm.cmd test
 ```
 
-O build executa TypeScript e Vite. Os 33 testes atuais usam PostgreSQL de verdade em um banco **separado**, `cantina_em_dia_test`. Cobrem persistência, validação, escala, estoque, compras, financeiro, produção, relatórios e importação. Em PostgreSQL externo, o usuário do teste precisa poder criar esse banco dedicado.
+O build executa TypeScript e Vite. Os 46 testes atuais usam PostgreSQL de verdade em um banco **separado**, `cantina_em_dia_test`. Cobrem persistência, validação, escala, estoque, compras, financeiro, produção, relatórios, importação, anexos e recuperação de backup. Os testes de recuperação criam e removem bancos isolados com nomes gerados. Em PostgreSQL externo, o usuário precisa poder criar esses bancos dedicados.
 
 As portas padrão são 8000 (API) e 5173 (interface). Se outra instância estiver usando essas portas, encerre-a no terminal em que foi aberta ou configure `API_PORT` e `WEB_PORT` no `.env`. O inicializador não encerra processos alheios.
 
@@ -153,4 +154,32 @@ Arquivos aceitos: PDF, PNG, JPEG, WebP, texto UTF-8, MP3, M4A, OGG/Opus e WAV. O
 
 O sistema verifica o hash antes de entregar o arquivo, rejeita duplicatas no mesmo registro e permite arquivar/recuperar sem apagar o documento físico. Vinculações e mudanças ficam no histórico. O armazenamento de arquivos pode ser configurado por `CANTINA_DATA_DIR`; isso não muda o diretório do PostgreSQL.
 
-Continuidade pendente: backup/restauração verificados e validação com os relatórios reais da Stone e as regras ainda não informadas pela família.
+## Backup e recuperação
+
+Abra **Backup e recuperação**. **Criar backup agora** guarda um ZIP com o retrato dos registros e os anexos, inclusive arquivados. A leitura do banco usa uma transação consistente; os arquivos são conferidos por tamanho e SHA-256. Um anexo ausente ou alterado impede a criação da cópia.
+
+Ao executar `npm.cmd start`, o inicializador cria uma cópia na primeira inicialização de cada dia. Isso depende de iniciar o aplicativo: não há serviço agendado com o computador desligado nem cópias contínuas durante o dia. Para desativar, configure `CANTINA_AUTO_BACKUP=0` no `.env`. Uma falha é informada no terminal e a aplicação permanece disponível para corrigir a pendência.
+
+As cópias ficam em `%LOCALAPPDATA%\CantinaEmDia\backups`, ou na pasta `backups` dentro de `CANTINA_DATA_DIR`, se configurado. **Baixar .zip** permite guardar uma cópia em outro dispositivo/local. O ZIP contém dados privados e não é criptografado. Não inclui senha, `.env`, código do programa ou os arquivos de outros backups. Preserve separadamente o código correspondente e as configurações necessárias à reinstalação.
+
+1. Clique em **Testar restauração**. O sistema cria um banco temporário, aplica as migrações, restaura e compara todos os registros, confere os anexos e remove esse banco ao concluir. A data de verificação só é registrada em caso de sucesso.
+2. Para recuperar dados, use **Restaurar uma cópia em outro banco**. Ela cria `cantina_restore_<identificador>`, confere os registros e recupera arquivos ausentes. Não substitui o banco em uso nem um anexo local diferente com o mesmo identificador.
+3. Para passar a usar a cópia, encerre o aplicativo no terminal de origem, troque **somente o nome do banco** em `DATABASE_URL`, no `.env`, pelo nome apresentado e execute `npm.cmd start`. Preserve usuário, senha, endereço e porta. O banco anterior continua disponível.
+4. Se o histórico de backups foi perdido, use **Importar uma cópia guardada fora do aplicativo**, selecionando seu ZIP. A importação valida e cadastra a cópia; não restaura automaticamente.
+
+O formato é um backup lógico próprio da aplicação, não um arquivo `pg_dump`. Exige a **mesma revisão de estrutura** do aplicativo para recuperar; consulte `manifest.json` dentro do ZIP para ver revisão e versão. Limites: ZIP de 512 MB, registros JSON de 64 MB, conteúdo total expandido de 1 GB e até 20.000 anexos de 8 MB cada, respeitando o limite total. O usuário PostgreSQL precisa poder criar bancos; o sistema não altera permissões.
+
+### Recuperação pelo terminal
+
+Com o PostgreSQL em execução, é possível usar a recuperação mesmo sem a interface. Para iniciar somente o PostgreSQL gerenciado, execute `node scripts/database.mjs` na raiz e mantenha esse terminal aberto. Em outro terminal:
+
+```powershell
+cd C:\dev\cantina-em-dia\backend
+..\.venv\Scripts\python.exe -m app.backup_cli create
+..\.venv\Scripts\python.exe -m app.backup_cli verify --file "C:\Caminho\copia.zip"
+..\.venv\Scripts\python.exe -m app.backup_cli restore --file "C:\Caminho\copia.zip"
+```
+
+`verify` remove a cópia temporária após a conferência. `restore` preserva um banco novo e informa seu nome; a troca da configuração continua manual. Em instalação nova, execute o setup e as migrações antes da recuperação. Se a URL estiver apontando para uma cópia que não existe mais, ajuste temporariamente apenas o nome do banco para `cantina_em_dia` antes de iniciar o PostgreSQL gerenciado.
+
+Continuidade pendente: validação com os relatórios reais da Stone, custos e preços da operação e regras ainda não informadas pela família.

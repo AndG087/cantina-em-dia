@@ -38,8 +38,8 @@ export async function config() {
   const url = new URL(values.DATABASE_URL?.replace('postgresql+psycopg:', 'postgresql:'));
   if (url.protocol !== 'postgresql:') throw new Error('Configure uma DATABASE_URL PostgreSQL válida.');
   const managed = values.CANTINA_MANAGED_POSTGRES === '1';
-  if (managed && (!['127.0.0.1', 'localhost'].includes(url.hostname) || url.username !== 'cantina' || url.pathname !== '/cantina_em_dia')) {
-    throw new Error('O PostgreSQL gerenciado usa o banco cantina_em_dia e o usuário cantina em loopback. Para outro banco, configure CANTINA_MANAGED_POSTGRES=0.');
+  if (managed && (!['127.0.0.1', 'localhost'].includes(url.hostname) || url.username !== 'cantina' || !/^\/cantina_(em_dia|restore_[a-f0-9]{12})$/.test(url.pathname))) {
+    throw new Error('O PostgreSQL gerenciado usa o banco cantina_em_dia ou uma cópia restaurada e o usuário cantina em loopback. Para outro banco, configure CANTINA_MANAGED_POSTGRES=0.');
   }
   return { values, url, managed, apiPort: Number(values.API_PORT || 8000), webPort: Number(values.WEB_PORT || 5173) };
 }
@@ -69,8 +69,12 @@ export async function ensurePostgres(cfg) {
       const client = new pg.Client({ connectionString: adminUrl.toString(), connectionTimeoutMillis: 4000 });
       await client.connect();
       try {
-        const found = await client.query('SELECT 1 FROM pg_database WHERE datname = $1', ['cantina_em_dia']);
-        if (!found.rowCount) await client.query('CREATE DATABASE cantina_em_dia');
+        const database = cfg.url.pathname.slice(1);
+        const found = await client.query('SELECT 1 FROM pg_database WHERE datname = $1', [database]);
+        if (!found.rowCount) {
+          if (database !== 'cantina_em_dia') throw new Error('O PostgreSQL não encontrou a cópia restaurada. Confira o nome no .env.');
+          await client.query('CREATE DATABASE cantina_em_dia');
+        }
       } finally { await client.end(); }
     } catch (error) {
       if (owned) await run(pg_ctl, ['stop', '-D', dataDir, '-m', 'fast', '-w']).catch(() => {});
