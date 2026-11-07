@@ -19,12 +19,13 @@ def isolated_test_database():
     assert engine.url.database == "cantina_em_dia_test", "Execute npm test para usar o banco de testes isolado."
     connection = engine.connect()
     transaction = connection.begin()
-    session = Session(bind=connection, join_transaction_mode="create_savepoint")
     connection.execute(text("UPDATE app_settings SET business_name='Cantina em Dia', location='SENAI · Paulista', manager_name='' WHERE id=1"))
-    app.dependency_overrides[get_session] = lambda: session
+    def override():
+        with Session(bind=connection, join_transaction_mode="create_savepoint", expire_on_commit=False) as session:
+            yield session
+    app.dependency_overrides[get_session] = override
     yield
     app.dependency_overrides.clear()
-    session.close()
     transaction.rollback()
     connection.close()
 

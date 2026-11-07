@@ -10,12 +10,14 @@ import {
 } from 'lucide-react';
 import { api } from './api';
 import TeamPage from './pages/TeamPage';
+import InventoryPage from './pages/InventoryPage';
 import type { AppSettings, DatabaseHealth, DocumentInfo } from './api';
 
-type Page = 'overview' | 'roadmap' | 'documents' | 'settings' | 'team';
+type Page = 'overview' | 'roadmap' | 'documents' | 'settings' | 'team' | 'inventory';
 type Icon = ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
 const nav: { id: Page; label: string; icon: Icon }[] = [
   { id: 'overview', label: 'Visão geral', icon: LayoutDashboard },
+  { id: 'inventory', label: 'Estoque', icon: Package },
   { id: 'team', label: 'Equipe e caixa', icon: Users },
   { id: 'roadmap', label: 'Plano de implantação', icon: ClipboardList },
   { id: 'documents', label: 'Documentos', icon: FileText },
@@ -131,6 +133,7 @@ export default function App() {
         </>}
         {page === 'roadmap' && <><PageHeading eyebrow="UM PASSO DE CADA VEZ" title="Plano de implantação" description="Cada etapa entrega uma parte funcional, antes de avançar para a próxima." /><div className="phase-intro"><CheckCircle2 size={23} /><div><strong>Etapa 1: base disponível</strong><p>Interface React, API Python, PostgreSQL e configurações iniciais.</p></div><span>1 de 8 etapas</span></div><section className="phase-list">{phases.map(([title, description, status], i) => <article key={title} className={`phase-row ${i === 0 ? 'complete' : ''}`}><span className="phase-number">{i === 0 ? <Check size={20} /> : String(i + 1).padStart(2, '0')}</span><div><h2>{title}</h2><p>{description}</p></div><span className={`phase-status phase-${i}`}>{status}</span></article>)}</section><div className="inline-note"><Clock3 size={18} /><p>Gestão planejada para 2–3 horas por dia, com visitas à tarde. O fechamento noturno ficará com um responsável no local.</p></div></>}
         {page === 'documents' && <><PageHeading eyebrow="CONTEXTO E PLANEJAMENTO" title={document ? document.title : 'Documentos do projeto'} description="Consulte o que já definimos e as informações que ainda precisamos reunir." />{documentLoading ? <div className="loading-box"><Loader2 className="spin" />Abrindo documento…</div> : document ? <section className="panel document-view"><div className="document-toolbar"><button className="text-button" onClick={() => setDocument(null)}><ChevronLeft size={17} />Todos os documentos</button><a className="button secondary small" href={`/api/documents/${document.id}/download`}><Download size={16} />Baixar .md</a></div><article className="markdown"><ReactMarkdown>{document.content}</ReactMarkdown></article></section> : <section className="documents-grid">{docs.map((doc, i) => <article className="panel document-card" key={doc.id}><div className="document-card-top"><span className={`document-icon document-color-${i}`}><FileText size={26} strokeWidth={1.5} /></span><span className="file-type">MARKDOWN</span></div><h2>{doc.title}</h2><p>{doc.description}</p><div className="document-card-foot"><button className="text-button" onClick={() => void openDocument(doc.id)}>Ler documento<ArrowUpRight size={16} /></button><a className="icon-button" href={`/api/documents/${doc.id}/download`} aria-label={`Baixar ${doc.title}`}><Download size={18} /></a></div></article>)}</section>}</>}
+        {page === 'inventory' && <InventoryPage />}
         {page === 'team' && <TeamPage />}
         {page === 'settings' && <><PageHeading eyebrow="SEU ESPAÇO DE TRABALHO" title="Configurações" description="Identifique a cantina e personalize seu espaço de gestão." />{settings ? <SettingsForm settings={settings} onSaved={value => { setSettings(value); setToast('Configurações salvas no PostgreSQL.'); }} /> : <div className="panel empty-panel"><Database size={30} /><h2>Configurações indisponíveis</h2><p>Conecte o banco de dados para consultar e salvar as informações.</p><button className="button secondary" onClick={() => void refresh()}>Verificar conexão</button></div>}<div className="inline-note"><ShieldCheck size={18} /><p>Os registros ficam neste computador. A sincronização com Stone e WhatsApp será avaliada nas etapas futuras.</p></div></>}
         <footer className="page-footer"><span>Cantina em Dia <span className="footer-dot">·</span> Dados locais</span><span>Etapa inicial <span className="footer-dot">·</span> v0.1.0</span></footer>

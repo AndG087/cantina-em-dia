@@ -1,6 +1,7 @@
 from datetime import datetime, date, time
 
-from sqlalchemy import CheckConstraint, DateTime, String, func, ForeignKey, Boolean, Date, Time, JSON
+from sqlalchemy import CheckConstraint, DateTime, String, func, ForeignKey, Boolean, Date, Time, JSON, Numeric, UniqueConstraint
+from decimal import Decimal
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
@@ -76,3 +77,62 @@ class Assignment(Base):
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reason: Mapped[str] = mapped_column(String(300))
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class StockItem(Base):
+    __tablename__ = "stock_items"
+    __table_args__ = (CheckConstraint("balance >= 0 AND minimum >= 0 AND unit_cost_cents >= 0", name="nonnegative_stock"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sku: Mapped[str] = mapped_column(String(60), unique=True)
+    name: Mapped[str] = mapped_column(String(120))
+    category: Mapped[str] = mapped_column(String(80))
+    kind: Mapped[str] = mapped_column(String(20))
+    unit: Mapped[str] = mapped_column(String(10))
+    minimum: Mapped[Decimal] = mapped_column(Numeric(14, 3), default=0)
+    balance: Mapped[Decimal] = mapped_column(Numeric(14, 3), default=0)
+    unit_cost_cents: Mapped[int] = mapped_column(default=0)
+    sale_price_cents: Mapped[int | None]
+    price_locked: Mapped[bool] = mapped_column(Boolean, default=False)
+    price_source: Mapped[str] = mapped_column(String(300), default="")
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class StockLot(Base):
+    __tablename__ = "stock_lots"
+    __table_args__ = (CheckConstraint("balance >= 0", name="nonnegative_lot"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("stock_items.id"), index=True)
+    code: Mapped[str] = mapped_column(String(100))
+    expiry: Mapped[date | None] = mapped_column(Date)
+    balance: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    unit_cost_cents: Mapped[int]
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class StockMovement(Base):
+    __tablename__ = "stock_movements"
+    __table_args__ = (UniqueConstraint("reversal_of", name="one_stock_reversal"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("stock_items.id"), index=True)
+    lot_id: Mapped[int] = mapped_column(ForeignKey("stock_lots.id"))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    kind: Mapped[str] = mapped_column(String(30))
+    reason: Mapped[str] = mapped_column(String(500))
+    unit_cost_cents: Mapped[int]
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    reference_type: Mapped[str | None] = mapped_column(String(40))
+    reference_id: Mapped[int | None]
+    reversal_of: Mapped[int | None] = mapped_column(ForeignKey("stock_movements.id"))
+
+
+class InventoryCount(Base):
+    __tablename__ = "inventory_counts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("stock_items.id"))
+    counted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expected: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    counted: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    difference: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    reason: Mapped[str] = mapped_column(String(500))
+    movements: Mapped[list] = mapped_column(JSON)

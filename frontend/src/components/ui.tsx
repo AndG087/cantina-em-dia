@@ -18,6 +18,7 @@ export function useRemote<T>(path: string) {
 }
 
 export const money = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
+export function cents(value: unknown) { const text = String(value).replace(',', '.'); if (!/^\d+(\.\d{1,2})?$/.test(text)) throw new Error('Informe o valor em reais com até duas casas decimais.'); const [whole, part = ''] = text.split('.'); return Number(whole) * 100 + Number(part.padEnd(2, '0')); }
 export const count = (value: string | number) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 }).format(Number(value));
 export const dateTime = (value?: string | null) => value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(new Date(value)) : '—';
 export function localNow() { return new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 16); }

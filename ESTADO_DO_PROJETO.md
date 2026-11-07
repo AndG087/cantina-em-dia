@@ -6,11 +6,12 @@ Repositório: `C:\dev\cantina-em-dia`. Alterações e commits permanecem locais.
 
 - Etapa 1 concluída: React, FastAPI, PostgreSQL, documentos e configuração.
 - Etapa 2 concluída: funcionários, escalas semanais com vigência, detecção de conflitos, substituições, feriados, confirmação de responsável e auditoria.
-- Etapas 3 a 8 em implementação, conforme autorização para implementar o sistema completo.
+- Etapa 3 concluída: produtos e insumos, lotes, validade, movimentações, estornos e inventários com proteção contra saldos negativos.
+- Etapas 4 a 8 em implementação.
 
-## Validação da etapa 2
+## Validação da etapa 3
 
-Oito testes passaram em PostgreSQL isolado. Build TypeScript/Vite aprovado.
+Doze testes passaram em PostgreSQL isolado. Build TypeScript/Vite aprovado.
 
 ## Executar
 
@@ -21,4 +22,4 @@ npm.cmd start
 
 ## Próxima entrega
 
-Estoque, inventário inicial e movimentações justificadas. Informações desconhecidas da operação continuam pendentes, sem dados fictícios.
+Compras, recebimento de mercadorias e reembolsos vinculados. Informações desconhecidas da operação continuam pendentes, sem dados fictícios.
