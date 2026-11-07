@@ -2,16 +2,24 @@
 
 Sistema local de gestão da cantina do Senai em Paulista, desenvolvido por etapas com Python, React e PostgreSQL.
 
-## O que funciona nesta versão
+## O que funciona nesta versão (0.2.0)
 
-- Tela inicial responsiva com as informações que precisamos levantar.
-- Plano de implantação em oito etapas.
-- Leitura e download dos quatro documentos de planejamento dentro do aplicativo.
-- Configurações básicas persistidas no PostgreSQL.
-- Verificações separadas da API e do banco, incluindo a migração aplicada.
-- Inicialização do PostgreSQL local, migrações, API e frontend por um comando.
+- Painel com vendas, despesas, responsável pelo caixa, estoque e pendências registrados.
+- Equipe, escalas semanais, substituições pontuais, feriados e confirmação de responsabilidade.
+- Estoque por produto/insumo, lotes, validade, entradas, perdas, estornos e inventários.
+- Fornecedores, pedidos, aprovação, recebimento parcial e reembolsos vinculados às compras.
+- Abertura, passagem com contagem, fechamento e reabertura do último caixa para correção.
+- Vendas por item, pagamentos divididos, cancelamentos, devolução física e registro do dinheiro devolvido.
+- Despesas, pagamentos e conciliação de recebimentos digitais com taxas.
+- Fichas técnicas versionadas, rendimento, produção medida/estimada e pesagem de porções prontas.
+- Relatórios mensais, exportação CSV, metas por base acordada e apurações preservadas.
+- Importação de CSV com seleção de colunas, prévia, validação transacional e proteção contra duplicidade.
+- Consulta dos documentos e configurações persistidas no PostgreSQL.
+- Inicialização local do banco, migrações, API e interface por um comando.
 
-Esta é a **etapa 1: fundação**. Caixa, estoque, equipe, compras, produção e meta ainda serão implementados. Os indicadores operacionais aparecem como pendentes. Nenhum valor fictício é apresentado como venda ou saldo real.
+As etapas 1 a 7 estão implementadas. A etapa 8 tem a **parte de importação CSV concluída**; anexos, backup e restauração ainda estão pendentes. Há estrutura de tabelas preparada para essa continuidade, mas ainda não há telas ou operações de backup/anexos. Nenhum dado de demonstração foi inserido no banco operacional.
+
+O desenvolvimento foi interrompido a pedido do usuário após o commit da importação. Consulte `ESTADO_DO_PROJETO.md` antes de continuar.
 
 ## Requisitos no Windows
 
@@ -53,7 +61,7 @@ Na primeira execução, o inicializador gera uma senha aleatória em `.env`, arq
 
 Isso mantém o banco fora do OneDrive. Remover o repositório não remove esse diretório. Preserve o `.env`, pois a senha existente precisa corresponder ao banco já criado. Não copie os arquivos de um PostgreSQL ativo como se fossem um backup consistente; o fluxo de backup e restauração será desenvolvido antes do uso operacional.
 
-Por enquanto, só há uma tabela de configuração e a tabela de controle das migrações. A aplicação atende apenas em `127.0.0.1`, para uso pessoal neste computador. Acesso por outros dispositivos e autenticação ainda não fazem parte desta versão.
+Os registros operacionais e suas trilhas de alteração ficam no PostgreSQL. A aplicação atende apenas em `127.0.0.1`, para uso pessoal neste computador. Acesso por outros dispositivos e autenticação ainda não fazem parte desta versão.
 
 ## Usar um PostgreSQL já instalado
 
@@ -75,7 +83,37 @@ npm.cmd run build
 npm.cmd test
 ```
 
-O build executa TypeScript e Vite. Os testes usam PostgreSQL de verdade em um banco **separado**, `cantina_em_dia_test`. O script aplica migrações nesse banco e verifica persistência, validação, indisponibilidade do banco e acesso permitido aos documentos. Em PostgreSQL externo, o usuário do teste precisa poder criar esse banco dedicado.
+O build executa TypeScript e Vite. Os 33 testes atuais usam PostgreSQL de verdade em um banco **separado**, `cantina_em_dia_test`. Cobrem persistência, validação, escala, estoque, compras, financeiro, produção, relatórios e importação. Em PostgreSQL externo, o usuário do teste precisa poder criar esse banco dedicado.
+
+As portas padrão são 8000 (API) e 5173 (interface). Se outra instância estiver usando essas portas, encerre-a no terminal em que foi aberta ou configure `API_PORT` e `WEB_PORT` no `.env`. O inicializador não encerra processos alheios.
+
+## Uso e regras importantes
+
+1. Cadastre a equipe e a escala. A pessoa prevista pelo relógio e a pessoa que confirmou assumir o caixa são informações diferentes.
+2. Cadastre produtos, ingredientes e embalagens, respeitando as unidades. Faça a contagem inicial acompanhada e registre os custos conhecidos.
+3. Nas compras, crie e aprove o pedido e registre o recebimento com nota e lotes. Reembolso à equipe liquida a mesma despesa, sem criar outra compra.
+4. Abra o caixa com o troco contado. Registre vendas, despesas em espécie, retiradas, passagens e fechamento.
+5. Para marmitas, registre a produção: ela consome ingredientes e gera produto pronto. A venda baixa somente o produto pronto. Consumo estimado permanece identificado como estimativa.
+6. Concilie cartões e Pix com os créditos efetivos. Recebimento não é uma segunda venda.
+7. Configure a meta apenas depois de confirmar o acordo. Sem valor/base definidos, a parcela variável permanece pendente. Apurações guardadas preservam o retrato usado na conferência.
+
+Os relatórios são gerenciais e usam os registros disponíveis. Mercadorias recebidas não são descontadas novamente como despesa operacional: o custo é reconhecido conforme venda, perda ou consumo. O resultado e a meta sobre resultado ficam pendentes quando há custos não confirmados, consumo estimado ou conciliação incompleta identificados pelo sistema. Registrar apenas parte da operação não comprova lucro completo.
+
+## Importação de CSV
+
+Abra **Importação CSV**, escolha o tipo e carregue o arquivo. Arquivos de até 2 MB e 2.000 linhas são aceitos. Selecione UTF-8 ou Windows-1252 conforme a origem, confira o mapeamento, valide a prévia e só então importe.
+
+Tipos disponíveis:
+
+- Cadastros de produtos/insumos.
+- Resumos financeiros de vendas, sem baixa de estoque e sem inventar custos.
+- Vendas por produto, com SKU, quantidade e preço unitário, com baixa de estoque.
+- Recebimentos digitais vinculados à referência externa da venda.
+- Saldos iniciais por lote.
+
+A tela oferece modelos de cabeçalho. As referências externas devem ser estáveis e únicas. Uma linha de venda por produto representa um registro desse produto; relatórios por pedido com vários itens precisam ser adaptados ao modelo antes da importação. Datas sem fuso são interpretadas em Brasília; registros em dinheiro precisam estar dentro do caixa selecionado. Validades podem ser futuras.
+
+A prévia não grava lançamentos. Ao confirmar, o lote inteiro é validado novamente e salvo de forma atômica. Arquivos ou referências já importados são rejeitados. O conteúdo original fica preservado no histórico, disponível para download como texto. A estrutura exportada pela Stone ainda precisa ser conferida com o relatório real; não há integração automática com a maquininha.
 
 Para conferir migrações manualmente, com o PostgreSQL em execução:
 
@@ -106,4 +144,4 @@ scripts/                # Instalação, inicialização e testes locais
 - [Perguntas para o pai](PERGUNTAS_PARA_O_PAI.md)
 - [Prompt de desenvolvimento por etapas](PROMPT_DESENVOLVIMENTO.md)
 
-Próxima entrega planejada: cadastro da equipe e escalas, com responsável previsto por dia/horário, confirmação de abertura e substituição manual com histórico.
+Continuidade pendente: anexos de comprovantes, backup/restauração verificados e validação com os relatórios reais da Stone e as regras ainda não informadas pela família.

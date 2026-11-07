@@ -21,10 +21,11 @@ from .purchases import router as purchases_router
 from .finance import router as finance_router
 from .production import router as production_router
 from .reports import router as reports_router
+from .imports import router as imports_router
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 
-app = FastAPI(title="Cantina em Dia", version="0.1.0")
+app = FastAPI(title="Cantina em Dia", version="0.2.0")
 app.add_middleware(
     TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"]
 )
@@ -42,6 +43,7 @@ app.include_router(purchases_router)
 app.include_router(finance_router)
 app.include_router(production_router)
 app.include_router(reports_router)
+app.include_router(imports_router)
 DOCUMENTS = {
     "projeto": ("Projeto de gestão", "PROJETO_GESTAO_CANTINA.md", "Operação, responsabilidades e plano de implantação."),
     "sistema": ("Especificação do sistema", "ESPECIFICACAO_SISTEMA_PYTHON.md", "Requisitos do aplicativo e regras dos controles."),
@@ -63,7 +65,7 @@ async def database_error_handler(request, exc):
 @app.get("/api/health")
 def health():
     """Verifica o processo da API, sem afirmar que o banco está disponível."""
-    return {"status": "ok", "service": "Cantina em Dia", "version": "0.1.0"}
+    return {"status": "ok", "service": "Cantina em Dia", "version": "0.2.0"}
 
 
 @app.get("/api/health/database")

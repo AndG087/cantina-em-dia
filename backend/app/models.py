@@ -1,6 +1,6 @@
 from datetime import datetime, date, time
 
-from sqlalchemy import CheckConstraint, DateTime, String, func, ForeignKey, Boolean, Date, Time, JSON, Numeric, UniqueConstraint
+from sqlalchemy import CheckConstraint, DateTime, String, func, ForeignKey, Boolean, Date, Time, JSON, Numeric, UniqueConstraint, Text
 from decimal import Decimal
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -392,3 +392,49 @@ class GoalAssessment(Base):
     note: Mapped[str] = mapped_column(String(500))
     report: Mapped[dict] = mapped_column(JSON)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ImportBatch(Base):
+    __tablename__ = 'import_batches'
+    __table_args__ = (UniqueConstraint('kind', 'file_hash', name='unique_import_file'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(40))
+    filename: Mapped[str] = mapped_column(String(150))
+    file_hash: Mapped[str] = mapped_column(String(64))
+    row_count: Mapped[int]
+    mapping: Mapped[dict] = mapped_column(JSON)
+    raw_csv: Mapped[str] = mapped_column(Text)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ImportRow(Base):
+    __tablename__ = 'import_rows'
+    __table_args__ = (UniqueConstraint('kind', 'external_reference', name='unique_import_row'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    batch_id: Mapped[int] = mapped_column(ForeignKey('import_batches.id'))
+    kind: Mapped[str] = mapped_column(String(40))
+    external_reference: Mapped[str] = mapped_column(String(150))
+    entity_id: Mapped[int]
+
+
+class Attachment(Base):
+    __tablename__ = 'attachments'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entity: Mapped[str] = mapped_column(String(40))
+    entity_id: Mapped[int]
+    original_name: Mapped[str] = mapped_column(String(180))
+    storage_name: Mapped[str] = mapped_column(String(80), unique=True)
+    sha256: Mapped[str] = mapped_column(String(64))
+    size_bytes: Mapped[int]
+    note: Mapped[str] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class BackupRecord(Base):
+    __tablename__ = 'backup_records'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    filename: Mapped[str] = mapped_column(String(120), unique=True)
+    sha256: Mapped[str] = mapped_column(String(64))
+    size_bytes: Mapped[int]
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

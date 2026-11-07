@@ -1,5 +1,7 @@
 # Prompt para desenvolver a cantina por etapas
 
+> Este é o prompt inicial do planejamento. O sistema já avançou: antes de executar qualquer etapa, leia `ESTADO_DO_PROJETO.md`. O usuário pediu para parar após o commit da importação CSV; a continuidade depende de uma nova solicitação.
+
 Copie o texto abaixo para o agente no VS Code. Ele contém o contexto, as regras e a primeira tarefa.
 
 ---

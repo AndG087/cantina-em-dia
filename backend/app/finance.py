@@ -277,6 +277,10 @@ def sale_payments(db: DB):
 
 @router.post('/settlements', status_code=201)
 def settle(data: SettlementIn, db: DB):
+    row = record_settlement(db, data); db.commit(); return row
+
+
+def record_settlement(db, data):
     aware(data.occurred_at); lock(db, 502)
     payment = get_or_404(db, SalePayment, data.payment_id); sale = get_or_404(db, Sale, payment.sale_id)
     if payment.method == 'cash' or data.fee_cents > data.gross_cents or data.occurred_at < sale.occurred_at:
@@ -286,7 +290,7 @@ def settle(data: SettlementIn, db: DB):
         raise HTTPException(409, 'Recebimento excede a venda.')
     if db.scalar(select(Settlement.id).where(Settlement.reference == data.reference)):
         raise HTTPException(409, 'Comprovante de recebimento já lançado.')
-    row = Settlement(**data.model_dump()); db.add(row); db.flush(); audit(db, 'settlement', row.id, 'received', data.model_dump()); db.commit(); return row
+    row = Settlement(**data.model_dump()); db.add(row); db.flush(); audit(db, 'settlement', row.id, 'received', data.model_dump()); return row
 
 
 @router.get('/settlements')

@@ -1,21 +1,44 @@
 # Estado do projeto
 
-Repositório: `C:\dev\cantina-em-dia`. Alterações e commits permanecem locais.
+Atualizado em 7 de novembro de 2026. Repositório: `C:\dev\cantina-em-dia`. Versão local 0.2.0. Commits feitos localmente; não houve envio ao GitHub.
 
-## Andamento
+## Ponto de parada solicitado
 
-- Etapa 1 concluída: React, FastAPI, PostgreSQL, documentos e configuração.
-- Etapa 2 concluída: funcionários, escalas semanais com vigência, detecção de conflitos, substituições, feriados, confirmação de responsável e auditoria.
-- Etapa 3 concluída: produtos e insumos, lotes, validade, movimentações, estornos e inventários com proteção contra saldos negativos.
-- Etapa 4 concluída: fornecedores, pedidos, aprovação, recebimento parcial, notas, despesas e reembolsos vinculados.
-- Etapa 5 concluída: abertura, passagem e fechamento do caixa, vendas por item com pagamentos divididos, descontos, conciliação digital, despesas, cancelamentos e devoluções.
-- Etapa 6 concluída: fichas técnicas versionadas, produção medida/estimada, custos por lote, rendimento, padrões e amostras de porção pronta.
-- Etapa 7 concluída: painel com dados registrados, relatórios mensais, CSV, separação de faturamento/recebimentos/resultado, metas versionadas e retratos de apuração.
-- Etapa 8 em implementação: importações, anexos e backup/restauração.
+O usuário pediu: “acabe essa etapa dê commit e pare por agora”. Foi concluída a parte de importação CSV em andamento (etapa 8a). Não iniciar a continuidade sem uma nova solicitação do usuário.
 
-## Validação da etapa 7
+## Entregas registradas
 
-Vinte e oito testes passaram em PostgreSQL isolado. Build TypeScript/Vite aprovado.
+| Etapa | Commit | Entrega |
+|---|---|---|
+| 1 | abb0ec1 | React, FastAPI, PostgreSQL, documentos e configurações |
+| 2 | 9965ab1 | Equipe, escalas, substituições, feriados, confirmações e auditoria |
+| 3 | 3c7f4ae | Estoque, lotes, validade, movimentos, estornos e inventário |
+| 4 | ff98dda | Pedidos, aprovação, recebimento parcial e reembolsos |
+| 5 | 893d222 | Caixa, vendas, despesas, conciliação, cancelamentos e devoluções |
+| 6 | 1761cf1 | Receitas versionadas, produção, rendimento e porções |
+| 7 | dd69a20 | Painel, relatórios mensais, metas e apurações preservadas |
+| 8a | Ver commit mais recente | CSV com mapeamento, prévia, validação e rastreabilidade |
+
+## Importação concluída
+
+- CSV UTF-8 ou Windows-1252, até 2 MB e 2.000 linhas.
+- Tipos: cadastro, resumo financeiro, venda por produto, recebimento digital e saldo inicial por lote.
+- Seleção de colunas com campos obrigatórios e modelos de cabeçalho.
+- Prévia sem gravação de lançamentos; validação repetida ao confirmar.
+- Uma transação para todo o lote, com rollback em erro.
+- Proteção por hash do arquivo e referências externas únicas.
+- Conteúdo original preservado no banco, com download como texto.
+- Resumos sem itens não baixam estoque nem inventam custo; a apuração sobre resultado permanece pendente nesses casos.
+
+## Verificações finais desta etapa
+
+- 33 testes passaram em PostgreSQL isolado (`cantina_em_dia_test`).
+- Build TypeScript/Vite passou.
+- `alembic check` passou: nenhuma alteração de estrutura pendente em relação aos modelos.
+- API respondeu 200 para saúde do banco, configuração de importação e painel.
+- Tela de importação conferida no navegador; console sem avisos/erros nessa conferência. Nenhum arquivo de teste foi importado no banco operacional pelo navegador.
+- A porta 8000 já estava ocupada por outra instância. Para a conferência, foram usadas temporariamente 8011/5184, sem alterar o `.env` nem encerrar processos alheios.
+- Há um aviso de depreciação da biblioteca de testes Starlette/httpx, sem falha nos testes.
 
 ## Executar
 
@@ -24,6 +47,18 @@ cd C:\dev\cantina-em-dia
 npm.cmd start
 ```
 
-## Próxima entrega
+Interface padrão: `http://127.0.0.1:5173`. Migrações são aplicadas pelo inicializador. Em instalação nova, executar `npm.cmd run setup` primeiro. Portas podem ser configuradas no `.env` quando necessário.
 
-Importações assistidas de CSV, anexos, exportações e backup/restauração verificados. Informações desconhecidas da operação continuam pendentes, sem dados fictícios.
+## O que ainda está pendente
+
+- Anexos de comprovantes e mensagens recebidas pelo WhatsApp.
+- Backup consistente e restauração testada. As tabelas `attachments` e `backup_records` foram preparadas pela migração 0008, mas não há operações, telas nem teste de backup/restauração implementados.
+- Integração automática com Stone/WhatsApp. O que existe é lançamento manual e importação CSV assistida.
+- Adaptação e validação com o arquivo real exportado pela solução Stone contratada.
+- Confirmação dos nomes/horários da equipe, cardápio, tabela oficial de preços, regras de consumo e base/valor da meta.
+- Revisão com dados reais dos custos e regras antes do uso operacional definitivo. Retificações históricas de custos e preços precisam de tratamento adicional; os registros existentes e as apurações guardadas não devem ser sobrescritos silenciosamente.
+- Acesso por outros dispositivos, autenticação e publicação em rede. A versão atual é pessoal e local, em loopback.
+
+## Dados e segurança do repositório
+
+Credenciais estão em `.env`, ignorado pelo Git. Dados ativos do PostgreSQL em `%LOCALAPPDATA%\CantinaEmDia\postgres`, fora do OneDrive. Não tratar cópia de arquivos de um banco ativo como backup consistente. Dados de testes são isolados do banco operacional.
