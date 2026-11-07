@@ -15,6 +15,9 @@ from .config import ROOT, settings
 from .database import engine, get_session
 from .models import AppSettings
 from .schemas import SettingsRead, SettingsUpdate
+from .team import router as team_router
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 
 app = FastAPI(title="Cantina em Dia", version="0.1.0")
 app.add_middleware(
@@ -23,11 +26,12 @@ app.add_middleware(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[f"http://127.0.0.1:{settings.web_port}", f"http://localhost:{settings.web_port}"],
-    allow_methods=["GET", "PUT"],
+    allow_methods=["GET", "PUT", "POST", "PATCH"],
     allow_headers=["Content-Type"],
 )
 
 SessionDep = Annotated[Session, Depends(get_session)]
+app.include_router(team_router)
 DOCUMENTS = {
     "projeto": ("Projeto de gestão", "PROJETO_GESTAO_CANTINA.md", "Operação, responsabilidades e plano de implantação."),
     "sistema": ("Especificação do sistema", "ESPECIFICACAO_SISTEMA_PYTHON.md", "Requisitos do aplicativo e regras dos controles."),
@@ -60,7 +64,8 @@ def database_health():
         version = connection.execute(text("SHOW server_version")).scalar_one()
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         configured = connection.execute(text("SELECT count(*) FROM app_settings WHERE id = 1")).scalar_one()
-    if revision != "0001_foundation" or configured != 1:
+    expected_revision = ScriptDirectory.from_config(Config(str(ROOT / "backend/alembic.ini"))).get_current_head()
+    if revision != expected_revision or configured != 1:
         raise HTTPException(503, "Migração pendente. Execute alembic upgrade head.")
     return {
         "status": "ok", "database": database, "engine": "PostgreSQL",

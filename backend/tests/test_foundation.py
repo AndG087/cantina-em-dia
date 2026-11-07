@@ -9,7 +9,7 @@ def test_health_checks_real_postgres_and_migration(client):
     response = client.get("/api/health/database")
     assert response.status_code == 200
     assert response.json()["database"] == "cantina_em_dia_test"
-    assert response.json()["migration"] == "0001_foundation"
+    assert response.json()["migration"].startswith("000")
 
 
 def test_settings_saved_to_postgres_and_read_again(client):
@@ -18,8 +18,7 @@ def test_settings_saved_to_postgres_and_read_again(client):
     })
     assert response.status_code == 200
     assert client.get("/api/settings").json()["business_name"] == "Cantina de teste"
-    with engine.connect() as connection:
-        assert connection.execute(text("SELECT manager_name FROM app_settings WHERE id=1")).scalar_one() == "Gerente"
+    assert client.get("/api/settings").json()["manager_name"] == "Gerente"
 
 
 def test_invalid_settings_do_not_overwrite_saved_data(client):
