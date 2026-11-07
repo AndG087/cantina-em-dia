@@ -2,9 +2,9 @@
 
 Atualizado em 7 de novembro de 2026. Repositório: `C:\dev\cantina-em-dia`. Versão local 0.2.0. Commits feitos localmente; não houve envio ao GitHub.
 
-## Ponto de parada solicitado
+## Continuidade autorizada
 
-O usuário pediu: “acabe essa etapa dê commit e pare por agora”. Foi concluída a parte de importação CSV em andamento (etapa 8a). Não iniciar a continuidade sem uma nova solicitação do usuário.
+O usuário pediu “continue”. A pausa anterior foi encerrada e o desenvolvimento foi retomado. Manter um commit por etapa validada. A etapa de anexos (8b) está concluída; a próxima entrega é backup/restauração (8c).
 
 ## Entregas registradas
 
@@ -17,7 +17,9 @@ O usuário pediu: “acabe essa etapa dê commit e pare por agora”. Foi conclu
 | 5 | 893d222 | Caixa, vendas, despesas, conciliação, cancelamentos e devoluções |
 | 6 | 1761cf1 | Receitas versionadas, produção, rendimento e porções |
 | 7 | dd69a20 | Painel, relatórios mensais, metas e apurações preservadas |
-| 8a | Ver commit mais recente | CSV com mapeamento, prévia, validação e rastreabilidade |
+| 8a | 3e69f6e | CSV com mapeamento, prévia, validação e rastreabilidade |
+
+| 8b | Commit desta entrega | Anexos com integridade e arquivamento reversível |
 
 ## Importação concluída
 
@@ -32,7 +34,7 @@ O usuário pediu: “acabe essa etapa dê commit e pare por agora”. Foi conclu
 
 ## Verificações finais desta etapa
 
-- 33 testes passaram em PostgreSQL isolado (`cantina_em_dia_test`).
+- 37 testes passaram em PostgreSQL isolado (`cantina_em_dia_test`).
 - Build TypeScript/Vite passou.
 - `alembic check` passou: nenhuma alteração de estrutura pendente em relação aos modelos.
 - API respondeu 200 para saúde do banco, configuração de importação e painel.
@@ -51,8 +53,8 @@ Interface padrão: `http://127.0.0.1:5173`. Migrações são aplicadas pelo inic
 
 ## O que ainda está pendente
 
-- Anexos de comprovantes e mensagens recebidas pelo WhatsApp.
-- Backup consistente e restauração testada. As tabelas `attachments` e `backup_records` foram preparadas pela migração 0008, mas não há operações, telas nem teste de backup/restauração implementados.
+- Validação do fluxo de anexos com comprovantes reais recebidos da equipe. O recebimento manual, vínculo, download e arquivamento reversível já estão disponíveis.
+- Backup consistente e restauração testada. As tabelas `attachments` e `backup_records` foram preparadas pela migração 0008, e serão usadas na próxima etapa; não há operação de backup/restauração implementada ainda.
 - Integração automática com Stone/WhatsApp. O que existe é lançamento manual e importação CSV assistida.
 - Adaptação e validação com o arquivo real exportado pela solução Stone contratada.
 - Confirmação dos nomes/horários da equipe, cardápio, tabela oficial de preços, regras de consumo e base/valor da meta.
@@ -62,3 +64,7 @@ Interface padrão: `http://127.0.0.1:5173`. Migrações são aplicadas pelo inic
 ## Dados e segurança do repositório
 
 Credenciais estão em `.env`, ignorado pelo Git. Dados ativos do PostgreSQL em `%LOCALAPPDATA%\CantinaEmDia\postgres`, fora do OneDrive. Não tratar cópia de arquivos de um banco ativo como backup consistente. Dados de testes são isolados do banco operacional.
+
+## Anexos (8b)
+
+Quatro testes adicionais verificam integridade e download, rejeição de formatos inválidos, vínculo e arquivamento reversível e proteção de caminhos/referências. Testes usam armazenamento temporário isolado. Build TypeScript/Vite aprovado.

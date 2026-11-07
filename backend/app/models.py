@@ -428,6 +428,7 @@ class Attachment(Base):
     size_bytes: Mapped[int]
     note: Mapped[str] = mapped_column(String(300))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class BackupRecord(Base):

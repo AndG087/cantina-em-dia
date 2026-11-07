@@ -19,9 +19,10 @@ import ProductionPage from './pages/ProductionPage';
 import ReportsPage from './pages/ReportsPage';
 import Dashboard from './pages/Dashboard';
 import ImportsPage from './pages/ImportsPage';
+import AttachmentsPage from './pages/AttachmentsPage';
 import type { AppSettings, DatabaseHealth, DocumentInfo } from './api';
 
-type Page = 'overview' | 'roadmap' | 'documents' | 'settings' | 'team' | 'inventory' | 'purchases' | 'cash' | 'sales' | 'finance' | 'production' | 'reports' | 'imports';
+type Page = 'overview' | 'roadmap' | 'documents' | 'settings' | 'team' | 'inventory' | 'purchases' | 'cash' | 'sales' | 'finance' | 'production' | 'reports' | 'imports' | 'attachments';
 type Icon = ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
 const nav: { id: Page; label: string; icon: Icon }[] = [
   { id: 'overview', label: 'Visão geral', icon: LayoutDashboard },
@@ -34,6 +35,7 @@ const nav: { id: Page; label: string; icon: Icon }[] = [
   { id: 'team', label: 'Equipe e escala', icon: Users },
   { id: 'reports', label: 'Relatórios e meta', icon: Target },
   { id: 'imports', label: 'Importação CSV', icon: Download },
+  { id: 'attachments', label: 'Comprovantes e anexos', icon: FileText },
   { id: 'roadmap', label: 'Plano de implantação', icon: ClipboardList },
   { id: 'documents', label: 'Documentos', icon: FileText },
   { id: 'settings', label: 'Configurações', icon: Settings2 },
@@ -46,7 +48,7 @@ const phases = [
   ['Caixa e financeiro', 'Vendas, despesas, passagens e fechamento por turno.', 'Disponível'],
   ['Produção e marmitas', 'Receitas, rendimento, porções, sobras e perdas.', 'Disponível'],
   ['Relatórios e meta', 'Resultados do mês e remuneração conforme o acordo.', 'Disponível'],
-  ['Importações e continuidade', 'CSV com prévia disponível. Anexos e backup/restauração pendentes.', 'Parcial'],
+  ['Importações e continuidade', 'CSV e anexos disponíveis. Backup/restauração pendentes.', 'Parcial'],
 ];
 export default function App() {
   const [page, setPage] = useState<Page>(() => {
@@ -122,6 +124,7 @@ export default function App() {
         {page === 'overview' && <Dashboard navigate={navigate} />}
         {page === 'roadmap' && <><PageHeading eyebrow="UM PASSO DE CADA VEZ" title="Plano de implantação" description="Cada etapa entrega uma parte funcional, antes de avançar para a próxima." /><div className="phase-intro"><CheckCircle2 size={23} /><div><strong>Sete etapas concluídas e importação disponível</strong><p>Controles operacionais implementados. Continuidade dos dados ainda pendente.</p></div><span>7 etapas + CSV</span></div><section className="phase-list">{phases.map(([title, description, status], i) => <article key={title} className={`phase-row ${i < 7 ? 'complete' : ''}`}><span className="phase-number">{i < 7 ? <Check size={20} /> : String(i + 1).padStart(2, '0')}</span><div><h2>{title}</h2><p>{description}</p></div><span className={`phase-status phase-${i}`}>{status}</span></article>)}</section><div className="inline-note"><Clock3 size={18} /><p>Gestão planejada para 2–3 horas por dia, com visitas à tarde. O fechamento noturno ficará com um responsável no local.</p></div></>}
         {page === 'documents' && <><PageHeading eyebrow="CONTEXTO E PLANEJAMENTO" title={document ? document.title : 'Documentos do projeto'} description="Consulte o que já definimos e as informações que ainda precisamos reunir." />{documentLoading ? <div className="loading-box"><Loader2 className="spin" />Abrindo documento…</div> : document ? <section className="panel document-view"><div className="document-toolbar"><button className="text-button" onClick={() => setDocument(null)}><ChevronLeft size={17} />Todos os documentos</button><a className="button secondary small" href={`/api/documents/${document.id}/download`}><Download size={16} />Baixar .md</a></div><article className="markdown"><ReactMarkdown>{document.content}</ReactMarkdown></article></section> : <section className="documents-grid">{docs.map((doc, i) => <article className="panel document-card" key={doc.id}><div className="document-card-top"><span className={`document-icon document-color-${i}`}><FileText size={26} strokeWidth={1.5} /></span><span className="file-type">MARKDOWN</span></div><h2>{doc.title}</h2><p>{doc.description}</p><div className="document-card-foot"><button className="text-button" onClick={() => void openDocument(doc.id)}>Ler documento<ArrowUpRight size={16} /></button><a className="icon-button" href={`/api/documents/${doc.id}/download`} aria-label={`Baixar ${doc.title}`}><Download size={18} /></a></div></article>)}</section>}</>}
+        {page === 'attachments' && <AttachmentsPage />}
         {page === 'imports' && <ImportsPage />}
         {page === 'reports' && <ReportsPage />}
         {page === 'production' && <ProductionPage />}

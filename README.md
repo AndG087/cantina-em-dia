@@ -14,12 +14,13 @@ Sistema local de gestão da cantina do Senai em Paulista, desenvolvido por etapa
 - Fichas técnicas versionadas, rendimento, produção medida/estimada e pesagem de porções prontas.
 - Relatórios mensais, exportação CSV, metas por base acordada e apurações preservadas.
 - Importação de CSV com seleção de colunas, prévia, validação transacional e proteção contra duplicidade.
+- Comprovantes em PDF, imagem, texto ou áudio, com caixa de recebidos, vinculação, verificação de integridade e arquivamento reversível.
 - Consulta dos documentos e configurações persistidas no PostgreSQL.
 - Inicialização local do banco, migrações, API e interface por um comando.
 
-As etapas 1 a 7 estão implementadas. A etapa 8 tem a **parte de importação CSV concluída**; anexos, backup e restauração ainda estão pendentes. Há estrutura de tabelas preparada para essa continuidade, mas ainda não há telas ou operações de backup/anexos. Nenhum dado de demonstração foi inserido no banco operacional.
+As etapas 1 a 7, a importação CSV e os anexos estão implementados. Backup e restauração ainda estão em implementação. Nenhum dado de demonstração foi inserido no banco operacional.
 
-O desenvolvimento foi interrompido a pedido do usuário após o commit da importação. Consulte `ESTADO_DO_PROJETO.md` antes de continuar.
+O desenvolvimento foi retomado a pedido do usuário. Consulte `ESTADO_DO_PROJETO.md` para acompanhar as entregas e verificações.
 
 ## Requisitos no Windows
 
@@ -144,4 +145,12 @@ scripts/                # Instalação, inicialização e testes locais
 - [Perguntas para o pai](PERGUNTAS_PARA_O_PAI.md)
 - [Prompt de desenvolvimento por etapas](PROMPT_DESENVOLVIMENTO.md)
 
-Continuidade pendente: anexos de comprovantes, backup/restauração verificados e validação com os relatórios reais da Stone e as regras ainda não informadas pela família.
+## Comprovantes e anexos
+
+Abra **Comprovantes e anexos** para guardar arquivos de até 8 MB. É possível recebê-los na caixa de entrada, sem lançar uma despesa, e vinculá-los depois a uma compra, pagamento/reembolso, venda, movimento, inventário, produção, caixa ou funcionário/treinamento.
+
+Arquivos aceitos: PDF, PNG, JPEG, WebP, texto UTF-8, MP3, M4A, OGG/Opus e WAV. O conteúdo precisa corresponder ao formato. Os arquivos ficam em `%LOCALAPPDATA%\CantinaEmDia\attachments`, fora do repositório. Não há leitura automática das conversas do WhatsApp: salve o comprovante, mensagem ou captura e anexe pelo formulário.
+
+O sistema verifica o hash antes de entregar o arquivo, rejeita duplicatas no mesmo registro e permite arquivar/recuperar sem apagar o documento físico. Vinculações e mudanças ficam no histórico. O armazenamento de arquivos pode ser configurado por `CANTINA_DATA_DIR`; isso não muda o diretório do PostgreSQL.
+
+Continuidade pendente: backup/restauração verificados e validação com os relatórios reais da Stone e as regras ainda não informadas pela família.
