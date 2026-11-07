@@ -105,7 +105,7 @@ class StockLot(Base):
     code: Mapped[str] = mapped_column(String(100))
     expiry: Mapped[date | None] = mapped_column(Date)
     balance: Mapped[Decimal] = mapped_column(Numeric(14, 3))
-    unit_cost_cents: Mapped[int]
+    unit_cost_cents: Mapped[Decimal] = mapped_column(Numeric(18, 6))
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
@@ -118,7 +118,7 @@ class StockMovement(Base):
     quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
     kind: Mapped[str] = mapped_column(String(30))
     reason: Mapped[str] = mapped_column(String(500))
-    unit_cost_cents: Mapped[int]
+    unit_cost_cents: Mapped[Decimal] = mapped_column(Numeric(18, 6))
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     reference_type: Mapped[str | None] = mapped_column(String(40))
@@ -300,3 +300,66 @@ class SaleRefund(Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     cash_session_id: Mapped[int | None] = mapped_column(ForeignKey('cash_sessions.id'))
     reference: Mapped[str] = mapped_column(String(150), unique=True)
+
+
+class Recipe(Base):
+    __tablename__ = 'recipes'
+    __table_args__ = (UniqueConstraint('product_id', 'version', name='unique_recipe_version'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey('stock_items.id'))
+    name: Mapped[str] = mapped_column(String(120))
+    version: Mapped[int]
+    yield_quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    instructions: Mapped[str] = mapped_column(String(3000))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class RecipeLine(Base):
+    __tablename__ = 'recipe_lines'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    recipe_id: Mapped[int] = mapped_column(ForeignKey('recipes.id'))
+    item_id: Mapped[int] = mapped_column(ForeignKey('stock_items.id'))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+
+
+class ProductionRun(Base):
+    __tablename__ = 'production_runs'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    recipe_id: Mapped[int] = mapped_column(ForeignKey('recipes.id'))
+    planned_output: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    actual_output: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    input_source: Mapped[str] = mapped_column(String(30))
+    note: Mapped[str] = mapped_column(String(500))
+    total_cost_cents: Mapped[int]
+    voided: Mapped[bool] = mapped_column(Boolean, default=False)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ProductionInput(Base):
+    __tablename__ = 'production_inputs'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey('production_runs.id'))
+    item_id: Mapped[int] = mapped_column(ForeignKey('stock_items.id'))
+    expected: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+
+
+class PortionStandard(Base):
+    __tablename__ = 'portion_standards'
+    __table_args__ = (UniqueConstraint('recipe_id', 'component', name='unique_portion_component'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    recipe_id: Mapped[int] = mapped_column(ForeignKey('recipes.id'))
+    component: Mapped[str] = mapped_column(String(100))
+    target_g: Mapped[Decimal] = mapped_column(Numeric(12, 3))
+    tolerance_g: Mapped[Decimal] = mapped_column(Numeric(12, 3))
+
+
+class PortionSample(Base):
+    __tablename__ = 'portion_samples'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey('production_runs.id'))
+    standard_id: Mapped[int] = mapped_column(ForeignKey('portion_standards.id'))
+    measured_g: Mapped[Decimal] = mapped_column(Numeric(12, 3))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    note: Mapped[str] = mapped_column(String(300))

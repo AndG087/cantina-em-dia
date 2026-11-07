@@ -9,11 +9,12 @@ Repositório: `C:\dev\cantina-em-dia`. Alterações e commits permanecem locais.
 - Etapa 3 concluída: produtos e insumos, lotes, validade, movimentações, estornos e inventários com proteção contra saldos negativos.
 - Etapa 4 concluída: fornecedores, pedidos, aprovação, recebimento parcial, notas, despesas e reembolsos vinculados.
 - Etapa 5 concluída: abertura, passagem e fechamento do caixa, vendas por item com pagamentos divididos, descontos, conciliação digital, despesas, cancelamentos e devoluções.
-- Etapas 6 a 8 em implementação.
+- Etapa 6 concluída: fichas técnicas versionadas, produção medida/estimada, custos por lote, rendimento, padrões e amostras de porção pronta.
+- Etapas 7 e 8 em implementação.
 
-## Validação da etapa 5
+## Validação da etapa 6
 
-Vinte testes passaram em PostgreSQL isolado. Build TypeScript/Vite aprovado.
+Vinte e três testes passaram em PostgreSQL isolado. Build TypeScript/Vite aprovado.
 
 ## Executar
 
@@ -24,4 +25,4 @@ npm.cmd start
 
 ## Próxima entrega
 
-Produção, fichas técnicas, rendimento e controle de marmitas. Informações desconhecidas da operação continuam pendentes, sem dados fictícios.
+Relatórios mensais, indicadores e apuração da meta configurável. Informações desconhecidas da operação continuam pendentes, sem dados fictícios.
