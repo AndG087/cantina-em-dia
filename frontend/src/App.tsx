@@ -12,15 +12,21 @@ import { api } from './api';
 import TeamPage from './pages/TeamPage';
 import InventoryPage from './pages/InventoryPage';
 import PurchasesPage from './pages/PurchasesPage';
+import CashPage from './pages/CashPage';
+import SalesPage from './pages/SalesPage';
+import FinancePage from './pages/FinancePage';
 import type { AppSettings, DatabaseHealth, DocumentInfo } from './api';
 
-type Page = 'overview' | 'roadmap' | 'documents' | 'settings' | 'team' | 'inventory' | 'purchases';
+type Page = 'overview' | 'roadmap' | 'documents' | 'settings' | 'team' | 'inventory' | 'purchases' | 'cash' | 'sales' | 'finance';
 type Icon = ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
 const nav: { id: Page; label: string; icon: Icon }[] = [
   { id: 'overview', label: 'Visão geral', icon: LayoutDashboard },
+  { id: 'sales', label: 'Vendas', icon: Store },
+  { id: 'cash', label: 'Caixa', icon: Wallet },
+  { id: 'finance', label: 'Financeiro', icon: ArrowDownLeft },
   { id: 'purchases', label: 'Compras e reembolsos', icon: ClipboardList },
   { id: 'inventory', label: 'Estoque', icon: Package },
-  { id: 'team', label: 'Equipe e caixa', icon: Users },
+  { id: 'team', label: 'Equipe e escala', icon: Users },
   { id: 'roadmap', label: 'Plano de implantação', icon: ClipboardList },
   { id: 'documents', label: 'Documentos', icon: FileText },
   { id: 'settings', label: 'Configurações', icon: Settings2 },
@@ -135,6 +141,9 @@ export default function App() {
         </>}
         {page === 'roadmap' && <><PageHeading eyebrow="UM PASSO DE CADA VEZ" title="Plano de implantação" description="Cada etapa entrega uma parte funcional, antes de avançar para a próxima." /><div className="phase-intro"><CheckCircle2 size={23} /><div><strong>Etapa 1: base disponível</strong><p>Interface React, API Python, PostgreSQL e configurações iniciais.</p></div><span>1 de 8 etapas</span></div><section className="phase-list">{phases.map(([title, description, status], i) => <article key={title} className={`phase-row ${i === 0 ? 'complete' : ''}`}><span className="phase-number">{i === 0 ? <Check size={20} /> : String(i + 1).padStart(2, '0')}</span><div><h2>{title}</h2><p>{description}</p></div><span className={`phase-status phase-${i}`}>{status}</span></article>)}</section><div className="inline-note"><Clock3 size={18} /><p>Gestão planejada para 2–3 horas por dia, com visitas à tarde. O fechamento noturno ficará com um responsável no local.</p></div></>}
         {page === 'documents' && <><PageHeading eyebrow="CONTEXTO E PLANEJAMENTO" title={document ? document.title : 'Documentos do projeto'} description="Consulte o que já definimos e as informações que ainda precisamos reunir." />{documentLoading ? <div className="loading-box"><Loader2 className="spin" />Abrindo documento…</div> : document ? <section className="panel document-view"><div className="document-toolbar"><button className="text-button" onClick={() => setDocument(null)}><ChevronLeft size={17} />Todos os documentos</button><a className="button secondary small" href={`/api/documents/${document.id}/download`}><Download size={16} />Baixar .md</a></div><article className="markdown"><ReactMarkdown>{document.content}</ReactMarkdown></article></section> : <section className="documents-grid">{docs.map((doc, i) => <article className="panel document-card" key={doc.id}><div className="document-card-top"><span className={`document-icon document-color-${i}`}><FileText size={26} strokeWidth={1.5} /></span><span className="file-type">MARKDOWN</span></div><h2>{doc.title}</h2><p>{doc.description}</p><div className="document-card-foot"><button className="text-button" onClick={() => void openDocument(doc.id)}>Ler documento<ArrowUpRight size={16} /></button><a className="icon-button" href={`/api/documents/${doc.id}/download`} aria-label={`Baixar ${doc.title}`}><Download size={18} /></a></div></article>)}</section>}</>}
+        {page === 'cash' && <CashPage />}
+        {page === 'sales' && <SalesPage />}
+        {page === 'finance' && <FinancePage />}
         {page === 'purchases' && <PurchasesPage />}
         {page === 'inventory' && <InventoryPage />}
         {page === 'team' && <TeamPage />}

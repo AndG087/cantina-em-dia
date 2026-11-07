@@ -69,7 +69,7 @@ def valid_quantity(item, amount):
 def change_stock(db, item_id, amount, kind, reason, occurred_at, *, lot_code="", expiry=None, unit_cost_cents=None, reference_type=None, reference_id=None, specific_lot=None, reversal_of=None):
     aware(occurred_at)
     item = item_locked(db, item_id)
-    if not item.active:
+    if not item.active and kind not in {'reversal', 'sale_return'}:
         raise HTTPException(409, "O item está inativo.")
     amount = quantity(amount); valid_quantity(item, amount)
     if not amount:

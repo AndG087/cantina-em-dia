@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from .database import get_session
 from .domain import audit, aware, get_or_404, lock, rows
-from .inventory import Qty, change_stock, valid_quantity
+from .inventory import Qty, change_stock, valid_quantity, ReasonIn
 from .models import Supplier, Purchase, PurchaseLine, PurchaseReceipt, StockItem, Expense, ExpensePayment
 from .team import Input
 
@@ -68,10 +68,11 @@ class ExpenseIn(Input):
 
 class PaymentIn(Input):
     amount_cents: Money = Field(gt=0)
-    method: Literal['pix', 'bank']
+    method: Literal['pix', 'bank', 'cash']
     source: Literal['cantina', 'owner'] = 'cantina'
     occurred_at: datetime
     reference: str = Field(min_length=3, max_length=150)
+    cash_session_id: int | None = None
 
 
 def paid_total(db, key):
@@ -90,7 +91,13 @@ def record_payment(db, expense, data):
     if paid_total(db, expense.id) + data.amount_cents > expense.amount_cents:
         raise HTTPException(409, 'Pagamento excede o saldo pendente.')
     payment = ExpensePayment(expense_id=expense.id, **data.model_dump())
-    db.add(payment); db.flush(); audit(db, 'expense_payment', payment.id, 'paid', data.model_dump())
+    db.add(payment); db.flush()
+    if data.method == 'cash':
+        if data.cash_session_id is None or data.source != 'cantina':
+            raise HTTPException(422, 'Pagamento em espécie exige um caixa aberto e origem cantina.')
+        from .finance import add_cash_entry
+        add_cash_entry(db, data.cash_session_id, 'expense', -data.amount_cents, data.occurred_at, f'Despesa #{expense.id}: {expense.description}', f'expense_payment:{payment.id}')
+    audit(db, 'expense_payment', payment.id, 'paid', data.model_dump())
     return payment
 
 
@@ -199,3 +206,12 @@ def payment(key: int, data: PaymentIn, db: DB):
 @router.get('/expense-payments')
 def payments(db: DB):
     return rows(db, ExpensePayment)
+
+
+@router.post('/expenses/{key}/cancel')
+def cancel_expense(key: int, data: ReasonIn, db: DB):
+    lock(db, 402); expense = get_or_404(db, Expense, key)
+    if expense.receipt_id or paid_total(db, key) or expense.voided:
+        raise HTTPException(409, 'Só é possível cancelar uma despesa manual ainda não paga. Para mercadorias, preserve o vínculo com o recebimento.')
+    expense.voided = True; audit(db, 'expense', key, 'cancelled', {'reason': data.reason}); db.commit()
+    return expense

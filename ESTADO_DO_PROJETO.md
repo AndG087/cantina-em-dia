@@ -8,11 +8,12 @@ Repositório: `C:\dev\cantina-em-dia`. Alterações e commits permanecem locais.
 - Etapa 2 concluída: funcionários, escalas semanais com vigência, detecção de conflitos, substituições, feriados, confirmação de responsável e auditoria.
 - Etapa 3 concluída: produtos e insumos, lotes, validade, movimentações, estornos e inventários com proteção contra saldos negativos.
 - Etapa 4 concluída: fornecedores, pedidos, aprovação, recebimento parcial, notas, despesas e reembolsos vinculados.
-- Etapas 5 a 8 em implementação.
+- Etapa 5 concluída: abertura, passagem e fechamento do caixa, vendas por item com pagamentos divididos, descontos, conciliação digital, despesas, cancelamentos e devoluções.
+- Etapas 6 a 8 em implementação.
 
-## Validação da etapa 4
+## Validação da etapa 5
 
-Quatorze testes passaram em PostgreSQL isolado. Build TypeScript/Vite aprovado.
+Vinte testes passaram em PostgreSQL isolado. Build TypeScript/Vite aprovado.
 
 ## Executar
 
@@ -23,4 +24,4 @@ npm.cmd start
 
 ## Próxima entrega
 
-Caixa e financeiro: abertura, vendas, fechamento, conciliação e despesas. Informações desconhecidas da operação continuam pendentes, sem dados fictícios.
+Produção, fichas técnicas, rendimento e controle de marmitas. Informações desconhecidas da operação continuam pendentes, sem dados fictícios.

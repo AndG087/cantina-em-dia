@@ -203,3 +203,100 @@ class ExpensePayment(Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     reference: Mapped[str] = mapped_column(String(150), unique=True)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    cash_session_id: Mapped[int | None] = mapped_column(ForeignKey('cash_sessions.id'))
+
+
+class CashSession(Base):
+    __tablename__ = 'cash_sessions'
+    __table_args__ = (UniqueConstraint('open_guard', name='one_open_cash_session'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    opened_by_id: Mapped[int] = mapped_column(ForeignKey('employees.id'))
+    employee_id: Mapped[int] = mapped_column(ForeignKey('employees.id'))
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    opening_cents: Mapped[int]
+    open_guard: Mapped[int | None] = mapped_column(default=1)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    counted_cents: Mapped[int | None]
+    expected_close_cents: Mapped[int | None]
+    difference_cents: Mapped[int | None]
+    note: Mapped[str] = mapped_column(String(500))
+
+
+class CashEntry(Base):
+    __tablename__ = 'cash_entries'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey('cash_sessions.id'), index=True)
+    kind: Mapped[str] = mapped_column(String(40))
+    amount_cents: Mapped[int]
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    note: Mapped[str] = mapped_column(String(500))
+    reference: Mapped[str] = mapped_column(String(150), unique=True)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class CashHandover(Base):
+    __tablename__ = 'cash_handovers'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey('cash_sessions.id'))
+    from_employee_id: Mapped[int] = mapped_column(ForeignKey('employees.id'))
+    to_employee_id: Mapped[int] = mapped_column(ForeignKey('employees.id'))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expected_cents: Mapped[int]
+    counted_cents: Mapped[int]
+    difference_cents: Mapped[int]
+    reason: Mapped[str] = mapped_column(String(500))
+
+
+class Sale(Base):
+    __tablename__ = 'sales'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    total_cents: Mapped[int]
+    discount_cents: Mapped[int] = mapped_column(default=0)
+    cost_cents: Mapped[int]
+    cashier_id: Mapped[int | None] = mapped_column(ForeignKey('employees.id'))
+    note: Mapped[str] = mapped_column(String(500))
+    external_id: Mapped[str | None] = mapped_column(String(150), unique=True)
+    stock_applied: Mapped[bool] = mapped_column(Boolean, default=True)
+    voided: Mapped[bool] = mapped_column(Boolean, default=False)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    stock_returned: Mapped[bool] = mapped_column(Boolean, default=False)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SaleLine(Base):
+    __tablename__ = 'sale_lines'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sale_id: Mapped[int] = mapped_column(ForeignKey('sales.id'), index=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey('stock_items.id'))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    unit_price_cents: Mapped[int]
+
+
+class SalePayment(Base):
+    __tablename__ = 'sale_payments'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sale_id: Mapped[int] = mapped_column(ForeignKey('sales.id'), index=True)
+    method: Mapped[str] = mapped_column(String(20))
+    amount_cents: Mapped[int]
+    due_date: Mapped[date | None] = mapped_column(Date)
+
+
+class Settlement(Base):
+    __tablename__ = 'settlements'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    payment_id: Mapped[int] = mapped_column(ForeignKey('sale_payments.id'), index=True)
+    gross_cents: Mapped[int]
+    fee_cents: Mapped[int]
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    reference: Mapped[str] = mapped_column(String(150), unique=True)
+
+
+class SaleRefund(Base):
+    __tablename__ = 'sale_refunds'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    payment_id: Mapped[int] = mapped_column(ForeignKey('sale_payments.id'))
+    amount_cents: Mapped[int]
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    cash_session_id: Mapped[int | None] = mapped_column(ForeignKey('cash_sessions.id'))
+    reference: Mapped[str] = mapped_column(String(150), unique=True)

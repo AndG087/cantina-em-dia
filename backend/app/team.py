@@ -150,6 +150,10 @@ def assign(db, employee_id, instant, reason):
 
 @router.post("/assignments", status_code=201)
 def confirm(data: AssignmentIn, db: DB):
+    from .models import CashSession
+    lock(db, 501)
+    if db.scalar(select(CashSession.id).where(CashSession.closed_at.is_(None))):
+        raise HTTPException(409, 'Há um caixa aberto. Use a passagem com contagem na tela Caixa.')
     row = assign(db, data.employee_id, data.started_at, data.reason)
     db.commit(); db.refresh(row)
     return row
