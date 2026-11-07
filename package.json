@@ -1,0 +1,19 @@
+{
+  "name": "cantina-em-dia",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Gestão local da cantina do Senai em Paulista",
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "start": "node scripts/local.mjs",
+    "build": "npm --prefix frontend run build",
+    "test": "node scripts/test.mjs"
+  },
+  "dependencies": {
+    "@embedded-postgres/windows-x64": "17.11.0-beta.19",
+    "dotenv": "^17.2.0",
+    "pg": "^8.16.0"
+  }
+}

@@ -1,0 +1,21 @@
+# Ambientes e dependências
+.venv/
+node_modules/
+frontend/node_modules/
+frontend/dist/
+*.tsbuildinfo
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+# Credenciais, dados locais e logs
+.env
+.env.*
+!.env.example
+.runtime/
+*.log
+*.dump
+*.sql.gz
+.DS_Store
+
