@@ -64,6 +64,7 @@ class ExpenseIn(Input):
     paid_by: Literal['employee', 'cantina', 'owner', 'unpaid']
     payee: str = Field(min_length=2, max_length=120)
     document: str = Field(min_length=1, max_length=150)
+    purpose: Literal['operating', 'manager_compensation'] = 'operating'
 
 
 class PaymentIn(Input):
@@ -183,7 +184,7 @@ def receive_purchase(key: int, data: ReceiptIn, db: DB):
 def expenses(db: DB):
     return [{'id': e.id, 'description': e.description, 'category': e.category, 'amount_cents': e.amount_cents, 'occurred_at': e.occurred_at,
              'due_date': e.due_date, 'paid_by': e.paid_by, 'payee': e.payee, 'document': e.document, 'receipt_id': e.receipt_id, 'voided': e.voided,
-             'paid_cents': paid_total(db, e.id), 'pending_cents': 0 if e.voided else e.amount_cents - paid_total(db, e.id)} for e in rows(db, Expense)]
+             'purpose': e.purpose, 'paid_cents': paid_total(db, e.id), 'pending_cents': 0 if e.voided else e.amount_cents - paid_total(db, e.id)} for e in rows(db, Expense)]
 
 
 @router.post('/expenses', status_code=201)

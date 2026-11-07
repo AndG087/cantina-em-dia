@@ -96,18 +96,19 @@ def produce(data: ProductionIn, db: DB):
     else:
         inputs = expected
     run = ProductionRun(recipe_id=recipe.id, planned_output=data.planned_output, actual_output=data.actual_output, occurred_at=data.occurred_at, input_source=data.input_source, note=data.note, total_cost_cents=0)
-    db.add(run); db.flush(); cost = Decimal(0)
+    db.add(run); db.flush(); cost = Decimal(0); cost_known = True
     for item_id, amount in sorted(inputs.items()):
         if amount <= 0:
             raise HTTPException(422, 'Quantidade estimada arredondou para zero; revise o tamanho do lote ou use medidas reais.')
         changes = change_stock(db, item_id, -amount, 'production' if data.actual_output else 'production_loss', data.note, data.occurred_at, reference_type='production', reference_id=run.id)
         cost += sum(-m.quantity * m.unit_cost_cents for m in changes)
+        cost_known = cost_known and all(m.cost_known for m in changes)
         db.add(ProductionInput(run_id=run.id, item_id=item_id, expected=expected[item_id], quantity=amount))
     run.total_cost_cents = int(cost.quantize(Decimal(1), rounding=ROUND_HALF_UP))
     if data.actual_output > 0:
         unit_cost = (cost / data.actual_output).quantize(Decimal('0.000001'), rounding=ROUND_HALF_UP)
         change_stock(db, product.id, data.actual_output, 'production_output', f'Produção #{run.id}: {data.note}', data.occurred_at, lot_code=data.lot_code or f'Produção #{run.id}', expiry=data.expiry,
-                     unit_cost_cents=unit_cost, reference_type='production_output', reference_id=run.id)
+                     unit_cost_cents=unit_cost, reference_type='production_output', reference_id=run.id, cost_known_override=cost_known)
     audit(db, 'production', run.id, 'produced', data.model_dump()); db.commit()
     return run
 

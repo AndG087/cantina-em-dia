@@ -1,0 +1,41 @@
+import { useState } from 'react';
+import { DataTable, RecordForm, ModuleHeading, ErrorNote, useRemote, save, localNow, dateTime, money, cents, count } from '../components/ui';
+export type MonthlyReport = {
+  month: string; generated_at: string; sales_count: number; gross_sales_cents: number; sales_cents: number;
+  cogs_cents: number; losses_and_staff_cents: number; operating_expenses_cents: number; purchase_expenses_cents: number;
+  manager_expenses_cents: number; all_expenses_cents: number; fees_cents: number; receipts_net_cents: number;
+  cashflow_cents: number; recorded_result_cents: number; operating_result_cents: number | null; result_after_recorded_compensation_cents: number | null;
+  closing_stock_value_cents: number; cash_difference_cents: number; completeness_notes: string[]; result_complete: boolean;
+  daily: { day: string; sales_cents: number }[];
+  top_products: { name: string; unit: string; quantity: string; gross_cents: number }[];
+  expenses_by_category: { category: string; amount_cents: number }[];
+  goal: { id: number; version: number; basis: string; target_cents: number; agreement: string; basis_cents: number | null; variable_cents: number | null } | null;
+};
+export const goalNames: Record<string, string> = { gross_sales: 'Vendas brutas antes de descontos e cancelamentos', net_sales: 'Vendas após descontos e cancelamentos (antes de impostos)', receipts: 'Recebimentos líquidos de taxas e devoluções', operating_result: 'Resultado gerencial antes da remuneração do gestor' };
+export default function ReportsPage() {
+  const [month, setMonth] = useState(localNow().slice(0, 7)); const report = useRemote<MonthlyReport>(`/reports/monthly?month=${month}`);
+  const goals = useRemote<{ id: number; month: string; version: number; basis: string; target_cents: number; agreement: string }[]>('/goals');
+  const assessments = useRemote<{ id: number; goal_id: number; basis_cents: number; variable_cents: number; owner_approved: boolean; note: string; recorded_at: string }[]>('/goal-assessments');
+  async function refresh() { await Promise.all([report.refresh(), goals.refresh(), assessments.refresh()]); }
+  const r = report.data;
+  return <><ModuleHeading title="Relatórios e meta" description="Faturamento, consumo de estoque, pagamentos e parcela variável, com bases separadas." onRefresh={() => void refresh()} /><ErrorNote errors={[report.error, goals.error, assessments.error]} /><div className="toolbar"><label>Mês de referência<input className="toolbar-input" type="month" value={month} onChange={e => { if (e.target.value) setMonth(e.target.value); }} /></label><a className="button secondary" href={`/api/reports/monthly.csv?month=${month}`}>Exportar resumo CSV</a></div>
+    {r && <><div className="responsibility-grid"><div className="panel stat-box"><span>Vendas após descontos e cancelamentos</span><strong>{money(r.sales_cents)}</strong><small>{r.sales_count} pedidos registrados; antes de impostos</small></div><div className="panel stat-box"><span>Resultado gerencial antes do gestor</span><strong>{r.operating_result_cents === null ? 'Pendente de conferência' : money(r.operating_result_cents)}</strong><small>Custos e despesas registrados no período</small></div><div className="panel stat-box"><span>Parcela variável estimada</span><strong>{r.goal?.variable_cents != null ? money(r.goal.variable_cents) : 'Meta ou base pendente'}</strong><small>Somente o excedente; não representa remuneração total</small></div></div>
+      {r.completeness_notes.length > 0 && <div className="notice"><strong>O resultado ainda exige conferência:</strong><ul>{r.completeness_notes.map(n => <li key={n}>{n}</li>)}</ul><p>Saldo parcial dos registros disponíveis: {money(r.recorded_result_cents)}. Esse valor não é usado para apurar meta sobre resultado enquanto houver pendências.</p></div>}
+      <DataTable title="Composição do período" rows={[
+        ['Vendas brutas antes de descontos/cancelamentos', r.gross_sales_cents], ['Vendas após descontos/cancelamentos', r.sales_cents],
+        ['Custo dos produtos vendidos', r.cogs_cents], ['Perdas, consumo da equipe e ajustes negativos', r.losses_and_staff_cents],
+        ['Outras despesas operacionais', r.operating_expenses_cents], ['Taxas conhecidas das vendas do mês', r.fees_cents],
+        ['Remuneração do gestor já lançada', r.manager_expenses_cents], ['Resultado após remuneração lançada', r.result_after_recorded_compensation_cents],
+        ['Compras recebidas (aquisição, sem novo desconto no resultado)', r.purchase_expenses_cents], ['Estoque registrado a custo no fim do período', r.closing_stock_value_cents],
+        ['Recebimentos líquidos efetivos no mês', r.receipts_net_cents], ['Saldo do fluxo registrado da cantina (sem transferências internas)', r.cashflow_cents], ['Diferenças nas passagens e fechamentos', r.cash_difference_cents],
+      ] as [string, number | null][]} columns={[{ label: 'Indicador', render: x => x[0] }, { label: 'Valor', render: x => x[1] === null ? 'Conferência pendente' : money(x[1]) }]} />
+      <div className="notice">Compras recebidas viram estoque; o custo sai conforme venda, perda ou consumo. Reembolso não é uma segunda despesa. O resultado é gerencial e depende de todos os custos, impostos e despesas terem sido registrados. Cancelamentos revisam os totais do período original; apurações salvas preservam o retrato usado na aprovação.</div>
+      {r.goal && <div className="panel goal-summary"><h2>Meta vigente · versão {r.goal.version}</h2><p>{goalNames[r.goal.basis]}: <strong>{money(r.goal.target_cents)}</strong></p><p>Combinado registrado: {r.goal.agreement}</p><p>Base apurada: {r.goal.basis_cents === null ? 'Pendente' : money(r.goal.basis_cents)}. Parcela variável = máximo entre zero e base menos meta.</p></div>}
+      <DataTable title="Produtos vendidos (valores antes do desconto global do pedido)" rows={r.top_products} columns={[{ label: 'Produto', render: p => p.name }, { label: 'Quantidade', render: p => `${count(p.quantity)} ${p.unit}` }, { label: 'Vendas dos itens', render: p => money(p.gross_cents) }]} />
+      <DataTable title="Despesas lançadas por categoria" rows={r.expenses_by_category} columns={[{ label: 'Categoria', render: c => c.category }, { label: 'Valor', render: c => money(c.amount_cents) }]} /></>}
+    <div className="forms-grid"><RecordForm title="Definir meta / nova versão do acordo" fields={[{ name: 'month', label: 'Mês', type: 'month', value: month }, { name: 'basis', label: 'Base acordada', options: Object.entries(goalNames).map(([value, label]) => ({ value, label })) }, { name: 'target', label: 'Valor da meta (R$)', type: 'number', min: 0 }, { name: 'agreement', label: 'Regra confirmada, responsável e condições', type: 'textarea', hint: 'Registre como foi definido com seus pais. Sem acordo, mantenha a meta pendente.' }]} onSubmit={v => save('/goals', { month: v.month, basis: v.basis, target_cents: cents(v.target), agreement: v.agreement }, refresh)} />
+    <RecordForm title="Guardar apuração do mês" fields={[{ name: 'month', label: 'Mês', type: 'month', value: month }, { name: 'owner_approved', label: 'Fechamento do mês encerrado aprovado pelos pais', type: 'checkbox' }, { name: 'note', label: 'Quem conferiu, quando e observações', type: 'textarea' }]} onSubmit={v => save('/goal-assessments', v, refresh)} /></div>
+    <DataTable title="Histórico das metas" rows={goals.data || []} columns={[{ label: 'Mês / versão', render: g => `${g.month} · v${g.version}` }, { label: 'Base', render: g => goalNames[g.basis] }, { label: 'Meta', render: g => money(g.target_cents) }, { label: 'Acordo', render: g => g.agreement }]} />
+    <DataTable title="Apurações preservadas" rows={assessments.data || []} columns={[{ label: 'Quando', render: a => dateTime(a.recorded_at) }, { label: 'Meta / versão', render: a => { const g = goals.data?.find(g => g.id === a.goal_id); return g ? `${g.month} v${g.version}` : `#${a.goal_id}`; } }, { label: 'Base', render: a => money(a.basis_cents) }, { label: 'Parcela variável', render: a => money(a.variable_cents) }, { label: 'Situação', render: a => a.owner_approved ? 'Aprovação registrada' : 'Simulação' }, { label: 'Observações', render: a => a.note }]} />
+  </>;
+}

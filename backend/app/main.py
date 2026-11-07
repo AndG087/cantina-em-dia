@@ -20,6 +20,7 @@ from .inventory import router as inventory_router
 from .purchases import router as purchases_router
 from .finance import router as finance_router
 from .production import router as production_router
+from .reports import router as reports_router
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 
@@ -40,6 +41,7 @@ app.include_router(inventory_router)
 app.include_router(purchases_router)
 app.include_router(finance_router)
 app.include_router(production_router)
+app.include_router(reports_router)
 DOCUMENTS = {
     "projeto": ("Projeto de gestão", "PROJETO_GESTAO_CANTINA.md", "Operação, responsabilidades e plano de implantação."),
     "sistema": ("Especificação do sistema", "ESPECIFICACAO_SISTEMA_PYTHON.md", "Requisitos do aplicativo e regras dos controles."),

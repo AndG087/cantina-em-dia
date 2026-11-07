@@ -29,6 +29,7 @@ class ItemIn(Input):
     price_locked: bool = False
     price_source: str = Field(default="", max_length=300)
     active: bool = True
+    cost_known: bool = False
 
 
 class MovementIn(Input):
@@ -66,7 +67,7 @@ def valid_quantity(item, amount):
         raise HTTPException(422, "Itens em unidade exigem quantidades inteiras.")
 
 
-def change_stock(db, item_id, amount, kind, reason, occurred_at, *, lot_code="", expiry=None, unit_cost_cents=None, reference_type=None, reference_id=None, specific_lot=None, reversal_of=None):
+def change_stock(db, item_id, amount, kind, reason, occurred_at, *, lot_code="", expiry=None, unit_cost_cents=None, reference_type=None, reference_id=None, specific_lot=None, reversal_of=None, cost_known_override=None):
     aware(occurred_at)
     item = item_locked(db, item_id)
     if not item.active and kind not in {'reversal', 'sale_return'}:
@@ -82,7 +83,8 @@ def change_stock(db, item_id, amount, kind, reason, occurred_at, *, lot_code="",
             lot = db.get(StockLot, specific_lot); lot.balance += amount
         else:
             lot = StockLot(item_id=item.id, code=lot_code or 'Sem identificação', expiry=expiry, balance=amount,
-                           unit_cost_cents=item.unit_cost_cents if unit_cost_cents is None else unit_cost_cents, received_at=occurred_at)
+                           unit_cost_cents=item.unit_cost_cents if unit_cost_cents is None else unit_cost_cents, received_at=occurred_at,
+                           cost_known=cost_known_override if cost_known_override is not None else (unit_cost_cents is not None or item.cost_known))
             db.add(lot); db.flush()
         pieces = [(lot, amount)]
     else:
@@ -104,7 +106,7 @@ def change_stock(db, item_id, amount, kind, reason, occurred_at, *, lot_code="",
     item.balance += amount
     for lot, part in pieces:
         movement = StockMovement(item_id=item_id, lot_id=lot.id, quantity=part, kind=kind, reason=reason, unit_cost_cents=lot.unit_cost_cents, occurred_at=occurred_at,
-                                 reference_type=reference_type, reference_id=reference_id, reversal_of=reversal_of)
+                                 reference_type=reference_type, reference_id=reference_id, reversal_of=reversal_of, cost_known=lot.cost_known)
         db.add(movement); db.flush(); results.append(movement)
         audit(db, 'stock', movement.id, kind, {'item_id': item_id, 'quantity': part, 'reason': reason, 'reference': reference_type})
     # Lançamentos tardios não podem criar estoque negativo em um instante anterior.
@@ -126,7 +128,8 @@ def create_item(data: ItemIn, db: DB):
     lock(db, 201)
     if db.scalar(select(StockItem.id).where(StockItem.sku == data.sku)):
         raise HTTPException(409, 'Já existe um item com esse código.')
-    item = StockItem(**data.model_dump()); db.add(item); db.flush()
+    values = data.model_dump(); values['cost_known'] = data.cost_known or data.unit_cost_cents > 0
+    item = StockItem(**values); db.add(item); db.flush()
     audit(db, 'item', item.id, 'created', data.model_dump()); db.commit(); db.refresh(item)
     return item
 
@@ -145,6 +148,7 @@ def update_item(key: int, data: ItemIn, db: DB):
     before = {key: getattr(item, key) for key in data.model_fields}
     for field, value in data.model_dump().items():
         setattr(item, field, value)
+    item.cost_known = data.cost_known or data.unit_cost_cents > 0
     audit(db, 'item', key, 'updated', {'before': before, 'after': data.model_dump()}); db.commit(); db.refresh(item)
     return item
 

@@ -234,12 +234,14 @@ def create_sale_record(db, data):
     elif any(p.method == 'cash' for p in data.payments):
         raise HTTPException(422, 'Selecione o caixa aberto para vendas em dinheiro.')
     sale = Sale(occurred_at=data.occurred_at, total_cents=total, discount_cents=data.discount_cents, cost_cents=0, cashier_id=session.employee_id if session else None, note=data.note, external_id=data.external_id)
-    db.add(sale); db.flush(); cost = Decimal(0)
+    db.add(sale); db.flush(); cost = Decimal(0); cost_known = True
     for line in sorted(data.lines, key=lambda value: value.item_id):
         moved = change_stock(db, line.item_id, -line.quantity, 'sale', f'Venda #{sale.id}', data.occurred_at, reference_type='sale', reference_id=sale.id)
         cost += sum(-m.quantity * m.unit_cost_cents for m in moved)
+        cost_known = cost_known and all(m.cost_known for m in moved)
         db.add(SaleLine(sale_id=sale.id, **line.model_dump()))
     sale.cost_cents = int(cost.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+    sale.cost_known = cost_known
     for payment in data.payments:
         row = SalePayment(sale_id=sale.id, **payment.model_dump()); db.add(row); db.flush()
         if payment.method == 'cash':

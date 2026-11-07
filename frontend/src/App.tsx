@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import type { FormEvent, ComponentType } from 'react';
 import ReactMarkdown from 'react-markdown';
 import {
-  ArrowDownLeft, ArrowRight, ArrowUpRight, BookOpen, CalendarDays, Check,
-  CheckCircle2, ChevronLeft, ChevronRight, Circle, ClipboardList,
+  ArrowDownLeft, ArrowUpRight, Check,
+  CheckCircle2, ChevronLeft, ChevronRight, ClipboardList,
   Clock3, Database, Download, FileText, LayoutDashboard, Leaf, Loader2,
   MapPin, Menu, Package, RefreshCw, Settings2, ShieldCheck, Store,
   Target, Users, Wallet, X,
@@ -16,9 +16,11 @@ import CashPage from './pages/CashPage';
 import SalesPage from './pages/SalesPage';
 import FinancePage from './pages/FinancePage';
 import ProductionPage from './pages/ProductionPage';
+import ReportsPage from './pages/ReportsPage';
+import Dashboard from './pages/Dashboard';
 import type { AppSettings, DatabaseHealth, DocumentInfo } from './api';
 
-type Page = 'overview' | 'roadmap' | 'documents' | 'settings' | 'team' | 'inventory' | 'purchases' | 'cash' | 'sales' | 'finance' | 'production';
+type Page = 'overview' | 'roadmap' | 'documents' | 'settings' | 'team' | 'inventory' | 'purchases' | 'cash' | 'sales' | 'finance' | 'production' | 'reports';
 type Icon = ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
 const nav: { id: Page; label: string; icon: Icon }[] = [
   { id: 'overview', label: 'Visão geral', icon: LayoutDashboard },
@@ -29,6 +31,7 @@ const nav: { id: Page; label: string; icon: Icon }[] = [
   { id: 'production', label: 'Produção e marmitas', icon: Leaf },
   { id: 'inventory', label: 'Estoque', icon: Package },
   { id: 'team', label: 'Equipe e escala', icon: Users },
+  { id: 'reports', label: 'Relatórios e meta', icon: Target },
   { id: 'roadmap', label: 'Plano de implantação', icon: ClipboardList },
   { id: 'documents', label: 'Documentos', icon: FileText },
   { id: 'settings', label: 'Configurações', icon: Settings2 },
@@ -43,17 +46,6 @@ const phases = [
   ['Relatórios e meta', 'Resultados do mês e remuneração conforme o acordo.', 'Planejada'],
   ['Importações e continuidade', 'Relatórios Stone, backup e restauração verificados.', 'Planejada'],
 ];
-const pending = [
-  ['Equipe e horários', 'Quem abre, opera e fecha o caixa em cada período.', Users],
-  ['Inventário inicial', 'Quantidade contada, unidade e custo dos produtos.', Package],
-  ['Regras da licitação', 'Tabela oficial de preços fixos e itens ajustáveis.', FileText],
-  ['Meta e remuneração', 'Valor, período e base de cálculo acordados com seus pais.', Target],
-] as const;
-
-function localTime(value: string) {
-  return new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
-}
-
 export default function App() {
   const [page, setPage] = useState<Page>(() => {
     const candidate = location.hash.replace('#', '');
@@ -62,7 +54,6 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [health, setHealth] = useState<DatabaseHealth | null>(null);
-  const [apiOnline, setApiOnline] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [docs, setDocs] = useState<DocumentInfo[]>([]);
@@ -78,7 +69,6 @@ export default function App() {
       api<{ status: string }>('/health'), api<DatabaseHealth>('/health/database'),
       api<AppSettings>('/settings'), api<DocumentInfo[]>('/documents'),
     ]);
-    setApiOnline(results[0].status === 'fulfilled');
     const database = results[1];
     setHealth(database.status === 'fulfilled' ? database.value : null);
     const configuration = results[2];
@@ -127,22 +117,10 @@ export default function App() {
       <header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-menu" aria-label="Abrir menu" aria-controls="main-navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><Menu size={21} /></button><span>Meu espaço</span><ChevronRight size={13} /><strong>{currentPage.label}</strong></div><div className="topbar-right"><span className={`connection-pill ${health ? 'connected' : 'disconnected'}`}><span />{loading ? 'Verificando conexão' : health ? 'Sistema local conectado' : 'Conexão pendente'}</span><span className="topbar-avatar">{settings?.manager_name?.slice(0, 1).toUpperCase() || 'G'}</span></div></header>
       <main id="main-content">
         {error && <div className="error-banner" role="alert"><div><strong>Precisamos verificar a conexão.</strong><span>{error}</span></div><button onClick={() => void refresh()} className="button secondary small" disabled={loading}><RefreshCw size={15} />Tentar novamente</button></div>}
-        {page === 'overview' && <>
-          <div className="page-heading"><div><span className="eyebrow">SUA OPERAÇÃO, EM UM SÓ LUGAR</span><h1>Visão geral da cantina</h1><p>Uma base organizada para acompanhar o que acontece por lá.</p></div><span className="date-label"><CalendarDays size={17} />{new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' }).format(new Date())}</span></div>
-          <section className="welcome-panel"><div className="welcome-copy"><span className="step-tag"><span />ETAPA 01 DE 08</span><h2>O primeiro passo<br />para colocar tudo em dia.</h2><p>A estrutura está pronta para começar. Vamos construir cada controle com as informações reais da cantina.</p><button className="button primary" onClick={() => navigate('roadmap')}>Ver plano de implantação<ArrowRight size={17} /></button></div><div className="welcome-illustration" aria-hidden="true"><div className="illustration-orbit" /><div className="mini-card"><div className="mini-top"><span className="mini-leaf"><Leaf size={21} /></span><span className="mini-lines"><i /><i /></span><span className="mini-check"><Check size={15} /></span></div><div className="mini-rule" /><div className="mini-row"><span>Organização</span><CheckCircle2 size={16} /></div><div className="mini-row"><span>Visibilidade</span><CheckCircle2 size={16} /></div><div className="mini-row"><span>Controle</span><span className="mini-dashed" /></div><div className="mini-bars">{[35, 49, 40, 68, 56, 84, 100].map((n, i) => <i key={i} style={{ height: `${n}%` }} />)}</div></div><span className="floating-dot dot-one" /><span className="floating-dot dot-two" /></div></section>
-          <div className="section-heading"><h2>Seus controles</h2><span>Dados reais serão cadastrados nas próximas etapas</span></div>
-          <section className="metrics-grid" aria-label="Controles previstos">{[
-            ['Vendas registradas', Wallet, 'Disponível após implantar o caixa', 'sage'],
-            ['Despesas registradas', ArrowDownLeft, 'Compras e despesas serão lançadas', 'sand'],
-            ['Itens no estoque', Package, 'Comece pela contagem inicial', 'blue'],
-            ['Sua meta mensal', Target, 'Valor e regra ainda a confirmar', 'pink'],
-          ].map(([title, MetricIcon, caption, color]) => { const M = MetricIcon as Icon; return <article className="metric-card" key={title as string}><div className="metric-top"><span>{title as string}</span><span className={`metric-icon ${color}`}><M size={18} /></span></div><strong className="metric-value">—</strong><p>{caption as string}</p></article>; })}</section>
-          <div className="overview-columns"><section className="panel pending-panel"><div className="panel-heading"><div><span className="eyebrow">ANTES DOS PRIMEIROS LANÇAMENTOS</span><h2>O que precisamos levantar</h2></div><span className="count-badge">4 assuntos</span></div><div className="pending-list">{pending.map(([title, description, PendingIcon]) => <div className="pending-row" key={title}><span className="pending-icon"><PendingIcon size={19} strokeWidth={1.7} /></span><div><strong>{title}</strong><p>{description}</p></div><Circle size={17} className="pending-circle" /></div>)}</div><button className="text-button" onClick={() => void openDocument('perguntas')}>Abrir perguntas para seu pai<ArrowUpRight size={16} /></button></section>
-          <section className="panel connection-panel"><div className="panel-heading"><div><span className="eyebrow">BASE DO SISTEMA</span><h2>Conexões verificadas</h2></div><Database size={22} className="muted" /></div><div className="connection-row"><span>Interface</span><span className="status-text"><span />Disponível</span></div><div className="connection-row"><span>API Python</span><span className={`status-text ${!apiOnline ? 'warning' : ''}`}><span />{apiOnline ? 'Conectada' : 'Pendente'}</span></div><div className="connection-row"><span>PostgreSQL</span><span className={`status-text ${!health ? 'warning' : ''}`}><span />{health ? 'Conectado' : 'Pendente'}</span></div><div className="connection-row"><span>Estrutura do banco</span><span className="status-label">{health ? 'Atualizada' : 'Não verificada'}</span></div><div className="connection-foot"><Clock3 size={14} />{health ? `Conferido às ${localTime(health.checked_at)}` : 'Aguardando verificação' }<button className="icon-button" aria-label="Atualizar conexões" title="Atualizar conexões" disabled={loading} onClick={() => void refresh()}><RefreshCw size={14} className={loading ? 'spin' : ''} /></button></div></section></div>
-          <section className="document-strip"><span className="document-strip-icon"><BookOpen size={24} strokeWidth={1.6} /></span><div><strong>O planejamento continua aqui.</strong><p>Os documentos que preparamos estão reunidos neste projeto.</p></div><button className="button secondary" onClick={() => navigate('documents')}>Ver documentos<ArrowRight size={16} /></button></section>
-        </>}
+        {page === 'overview' && <Dashboard navigate={navigate} />}
         {page === 'roadmap' && <><PageHeading eyebrow="UM PASSO DE CADA VEZ" title="Plano de implantação" description="Cada etapa entrega uma parte funcional, antes de avançar para a próxima." /><div className="phase-intro"><CheckCircle2 size={23} /><div><strong>Etapa 1: base disponível</strong><p>Interface React, API Python, PostgreSQL e configurações iniciais.</p></div><span>1 de 8 etapas</span></div><section className="phase-list">{phases.map(([title, description, status], i) => <article key={title} className={`phase-row ${i === 0 ? 'complete' : ''}`}><span className="phase-number">{i === 0 ? <Check size={20} /> : String(i + 1).padStart(2, '0')}</span><div><h2>{title}</h2><p>{description}</p></div><span className={`phase-status phase-${i}`}>{status}</span></article>)}</section><div className="inline-note"><Clock3 size={18} /><p>Gestão planejada para 2–3 horas por dia, com visitas à tarde. O fechamento noturno ficará com um responsável no local.</p></div></>}
         {page === 'documents' && <><PageHeading eyebrow="CONTEXTO E PLANEJAMENTO" title={document ? document.title : 'Documentos do projeto'} description="Consulte o que já definimos e as informações que ainda precisamos reunir." />{documentLoading ? <div className="loading-box"><Loader2 className="spin" />Abrindo documento…</div> : document ? <section className="panel document-view"><div className="document-toolbar"><button className="text-button" onClick={() => setDocument(null)}><ChevronLeft size={17} />Todos os documentos</button><a className="button secondary small" href={`/api/documents/${document.id}/download`}><Download size={16} />Baixar .md</a></div><article className="markdown"><ReactMarkdown>{document.content}</ReactMarkdown></article></section> : <section className="documents-grid">{docs.map((doc, i) => <article className="panel document-card" key={doc.id}><div className="document-card-top"><span className={`document-icon document-color-${i}`}><FileText size={26} strokeWidth={1.5} /></span><span className="file-type">MARKDOWN</span></div><h2>{doc.title}</h2><p>{doc.description}</p><div className="document-card-foot"><button className="text-button" onClick={() => void openDocument(doc.id)}>Ler documento<ArrowUpRight size={16} /></button><a className="icon-button" href={`/api/documents/${doc.id}/download`} aria-label={`Baixar ${doc.title}`}><Download size={18} /></a></div></article>)}</section>}</>}
+        {page === 'reports' && <ReportsPage />}
         {page === 'production' && <ProductionPage />}
         {page === 'cash' && <CashPage />}
         {page === 'sales' && <SalesPage />}

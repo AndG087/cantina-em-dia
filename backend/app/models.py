@@ -95,6 +95,7 @@ class StockItem(Base):
     price_locked: Mapped[bool] = mapped_column(Boolean, default=False)
     price_source: Mapped[str] = mapped_column(String(300), default="")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    cost_known: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
 
 
 class StockLot(Base):
@@ -107,6 +108,7 @@ class StockLot(Base):
     balance: Mapped[Decimal] = mapped_column(Numeric(14, 3))
     unit_cost_cents: Mapped[Decimal] = mapped_column(Numeric(18, 6))
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    cost_known: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
 
 
 class StockMovement(Base):
@@ -124,6 +126,7 @@ class StockMovement(Base):
     reference_type: Mapped[str | None] = mapped_column(String(40))
     reference_id: Mapped[int | None]
     reversal_of: Mapped[int | None] = mapped_column(ForeignKey("stock_movements.id"))
+    cost_known: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
 
 
 class InventoryCount(Base):
@@ -191,6 +194,7 @@ class Expense(Base):
     receipt_id: Mapped[int | None] = mapped_column(ForeignKey("purchase_receipts.id"), unique=True)
     voided: Mapped[bool] = mapped_column(Boolean, default=False)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    purpose: Mapped[str] = mapped_column(String(40), default='operating', server_default='operating')
 
 
 class ExpensePayment(Base):
@@ -262,6 +266,7 @@ class Sale(Base):
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     stock_returned: Mapped[bool] = mapped_column(Boolean, default=False)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    cost_known: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
 
 
 class SaleLine(Base):
@@ -363,3 +368,27 @@ class PortionSample(Base):
     measured_g: Mapped[Decimal] = mapped_column(Numeric(12, 3))
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     note: Mapped[str] = mapped_column(String(300))
+
+
+class Goal(Base):
+    __tablename__ = 'goals'
+    __table_args__ = (UniqueConstraint('month', 'version', name='unique_month_goal_version'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    month: Mapped[str] = mapped_column(String(7), index=True)
+    version: Mapped[int]
+    basis: Mapped[str] = mapped_column(String(40))
+    target_cents: Mapped[int]
+    agreement: Mapped[str] = mapped_column(String(1000))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class GoalAssessment(Base):
+    __tablename__ = 'goal_assessments'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    goal_id: Mapped[int] = mapped_column(ForeignKey('goals.id'))
+    basis_cents: Mapped[int]
+    variable_cents: Mapped[int]
+    owner_approved: Mapped[bool] = mapped_column(Boolean)
+    note: Mapped[str] = mapped_column(String(500))
+    report: Mapped[dict] = mapped_column(JSON)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
