@@ -17,6 +17,7 @@ from .models import AppSettings
 from .schemas import SettingsRead, SettingsUpdate
 from .team import router as team_router
 from .inventory import router as inventory_router
+from .purchases import router as purchases_router
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 
@@ -34,6 +35,7 @@ app.add_middleware(
 SessionDep = Annotated[Session, Depends(get_session)]
 app.include_router(team_router)
 app.include_router(inventory_router)
+app.include_router(purchases_router)
 DOCUMENTS = {
     "projeto": ("Projeto de gestão", "PROJETO_GESTAO_CANTINA.md", "Operação, responsabilidades e plano de implantação."),
     "sistema": ("Especificação do sistema", "ESPECIFICACAO_SISTEMA_PYTHON.md", "Requisitos do aplicativo e regras dos controles."),

@@ -52,3 +52,20 @@ export function ErrorNote({ errors }: { errors: (string | undefined)[] }) {
 export async function save(path: string, data: unknown, refresh: () => Promise<unknown>, method = 'POST') {
   await api(path, { method, body: JSON.stringify(data) }); await refresh();
 }
+
+export type LineDraft = { item_id: string; quantity: string; price: string; lot_code?: string; expiry?: string };
+export function LinesInput({ value, onChange, options, priceLabel = 'Preço por unidade (R$)', lots = false }: { value: LineDraft[]; onChange: (value: LineDraft[]) => void; options: { value: number; label: string }[]; priceLabel?: string; lots?: boolean }) {
+  function update(index: number, field: string, text: string) { onChange(value.map((line, i) => i === index ? { ...line, [field]: text } : line)); }
+  return <div className="line-editor">{value.map((line, index) => <div className="line-entry" key={index}><label>Item<select required value={line.item_id} onChange={e => update(index, 'item_id', e.target.value)}><option value="">Selecione…</option>{options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></label><label>Quantidade<input required type="number" min="0.001" step="0.001" value={line.quantity} onChange={e => update(index, 'quantity', e.target.value)} /></label><label>{priceLabel}<input required type="number" min="0" step="0.01" value={line.price} onChange={e => update(index, 'price', e.target.value)} /></label>{lots && <><label>Lote<input value={line.lot_code || ''} onChange={e => update(index, 'lot_code', e.target.value)} /></label><label>Validade<input type="date" value={line.expiry || ''} onChange={e => update(index, 'expiry', e.target.value)} /></label></>}<button type="button" className="mini-action" disabled={value.length === 1} onClick={() => onChange(value.filter((_, i) => i !== index))}>Remover</button></div>)}<button type="button" className="button secondary" onClick={() => onChange([...value, { item_id: '', quantity: '1', price: '0' }])}>Adicionar item</button></div>;
+}
+
+export function Composer({ title, children, onSubmit, submit = 'Salvar' }: { title: string; children: ReactNode; onSubmit: (data: FormData) => Promise<void>; submit?: string }) {
+  const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [error, setError] = useState(false);
+  async function saveForm(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault(); const form = e.currentTarget; setBusy(true); setMessage('');
+    try { await onSubmit(new FormData(form)); setError(false); setMessage('Registro salvo.'); }
+    catch (e) { setError(true); setMessage(e instanceof Error ? e.message : 'Falha ao salvar.'); }
+    finally { setBusy(false); }
+  }
+  return <details className="panel record-form"><summary>{title}<span>Abrir formulário</span></summary><form onSubmit={saveForm}>{children}<div className="operation-form-foot"><span role={error ? 'alert' : 'status'} className={error ? 'form-error' : 'success-message'}>{message}</span><button className="button primary" type="submit" disabled={busy}>{busy ? 'Salvando…' : submit}</button></div></form></details>;
+}

@@ -136,3 +136,70 @@ class InventoryCount(Base):
     difference: Mapped[Decimal] = mapped_column(Numeric(14, 3))
     reason: Mapped[str] = mapped_column(String(500))
     movements: Mapped[list] = mapped_column(JSON)
+
+
+class Supplier(Base):
+    __tablename__ = "suppliers"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), unique=True)
+    contact: Mapped[str] = mapped_column(String(150), default="")
+
+
+class Purchase(Base):
+    __tablename__ = "purchases"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    supplier_id: Mapped[int] = mapped_column(ForeignKey("suppliers.id"))
+    requested_by: Mapped[str] = mapped_column(String(100))
+    note: Mapped[str] = mapped_column(String(500))
+    status: Mapped[str] = mapped_column(String(20), default="requested")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PurchaseLine(Base):
+    __tablename__ = "purchase_lines"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    purchase_id: Mapped[int] = mapped_column(ForeignKey("purchases.id"), index=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("stock_items.id"))
+    ordered: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    received: Mapped[Decimal] = mapped_column(Numeric(14, 3), default=0)
+    estimated_cost_cents: Mapped[int]
+
+
+class PurchaseReceipt(Base):
+    __tablename__ = "purchase_receipts"
+    __table_args__ = (UniqueConstraint('supplier_id', 'document', name='unique_supplier_document'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    purchase_id: Mapped[int] = mapped_column(ForeignKey("purchases.id"))
+    supplier_id: Mapped[int] = mapped_column(ForeignKey("suppliers.id"))
+    document: Mapped[str] = mapped_column(String(120))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    total_cents: Mapped[int]
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Expense(Base):
+    __tablename__ = "expenses"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    description: Mapped[str] = mapped_column(String(300))
+    category: Mapped[str] = mapped_column(String(80))
+    amount_cents: Mapped[int]
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    due_date: Mapped[date | None] = mapped_column(Date)
+    paid_by: Mapped[str] = mapped_column(String(30))
+    payee: Mapped[str] = mapped_column(String(120))
+    document: Mapped[str] = mapped_column(String(150))
+    receipt_id: Mapped[int | None] = mapped_column(ForeignKey("purchase_receipts.id"), unique=True)
+    voided: Mapped[bool] = mapped_column(Boolean, default=False)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ExpensePayment(Base):
+    __tablename__ = "expense_payments"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    expense_id: Mapped[int] = mapped_column(ForeignKey("expenses.id"), index=True)
+    amount_cents: Mapped[int]
+    method: Mapped[str] = mapped_column(String(20))
+    source: Mapped[str] = mapped_column(String(30))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    reference: Mapped[str] = mapped_column(String(150), unique=True)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
