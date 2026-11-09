@@ -79,13 +79,13 @@ Quatro testes adicionais verificam integridade e download, rejeição de formato
 - Importação de ZIP externo para recuperar o catálogo; verificação e restauração disponíveis também por CLI.
 - Cópia automática na primeira inicialização do dia pelo `npm.cmd start`; pode ser desativada com `CANTINA_AUTO_BACKUP=0`. Não é um serviço contínuo ou agendado.
 - Armazenamento em `%LOCALAPPDATA%\CantinaEmDia\backups`, configurável com `CANTINA_DATA_DIR`. O diretório do PostgreSQL permanece separado.
-- Migração atual: `0010_backups`. Este formato exige a mesma revisão para recuperar; guardar o código correspondente junto à estratégia de cópia externa. Procedimento completo no README.
+- Migração daquela entrega: `0010_backups`; estrutura atual: `0013_lot_lookup_index`. Este formato exige a mesma revisão para recuperar; guardar o código correspondente junto à estratégia de cópia externa. Procedimento completo no README.
 
 Nove testes adicionais cobrem restauração real com decimais, datas, horários, JSON e sequências; recuperação física de anexo ausente; preservação do banco de origem; arquivos adulterados; perda do catálogo; duplicidade; limites; caminhos indevidos; revisão incompatível; proteção do banco original; criação diária pelo CLI e bloqueio de alterações iniciadas por outro site. Os dados, arquivos e bancos de recuperação dos testes são isolados e limpos.
 
 ## Preços com vigência
 
-Etapa adicional autorizada em 9 de novembro. Nova tela Preços e custos, com origem, motivo, vigência e cancelamento de regras sem vendas posteriores. A venda manual e o CSV por item conferem o preço fixado na data da ocorrência. Uma regra não pode alcançar vendas já registradas. O cadastro inicial foi preservado pela migração 0011_price_rules. Alterações de preço devem usar o novo fluxo. Validação: 50 testes passaram e o build TypeScript/Vite passou. A próxima entrega é retificação gerencial de custos com histórico e prévia de impacto.
+Etapa adicional autorizada em 9 de novembro. Nova tela Preços e custos, com origem, motivo, vigência e cancelamento de regras sem vendas posteriores. A venda manual e o CSV por item conferem o preço fixado na data da ocorrência. Uma regra não pode alcançar vendas já registradas. O cadastro inicial foi preservado pela migração 0011_price_rules. Alterações de preço devem usar o novo fluxo. Validação: 50 testes passaram e o build TypeScript/Vite passou. A retificação gerencial foi concluída na etapa seguinte, com histórico e prévia de impacto.
 
 ## Retificação gerencial de custos
 
@@ -94,3 +94,16 @@ Correção por lote com documento, motivo, confirmação e prévia. Os registros
 ## Consulta de custos por lote
 
 Após a retificação, a consulta usada em novos movimentos foi ajustada para buscar apenas os lotes movimentados e suas origens. Isso evita carregar todo o histórico a cada venda. Índice por lote na migração 0013_lot_lookup_index. Os relatórios continuam avaliando os registros necessários para os custos históricos corrigidos. O teste de propagação para vendas futuras permanece na suíte.
+
+## Guia de administração e mapa das funcionalidades
+
+Documentos adicionados em 9 de novembro de 2026:
+
+- GUIA_PRATICO_DA_CANTINA.md: guia para iniciante com implantação, primeiros trinta dias, rotina remota de duas a três horas à tarde, modelos de mensagens, caixa físico, Pix/cartão, estoque, compras, reembolsos, marmitas, preços, equipe, cuidados com alimentos e fechamento mensal. Exemplos são fictícios e não foram cadastrados no banco. Referências oficiais do Sebrae e Anvisa no próprio guia.
+- MAPA_FUNCIONALIDADES.md: entradas, resultados, regras, exemplos, conexões, correções e limites de todos os módulos, com atalhos internos.
+
+Ambos estão na área Documentos, com leitura, download Markdown e botão de impressão/salvar PDF pelo navegador. Suporte a tabelas e listas de conferência por remark-gfm. Atualizado o teste da lista permitida de documentos. Navegador: leitura de ambos, tabela, checklists e atalho para Preços e custos conferidos; console sem avisos/erros nessa sessão. A captura de imagem não ficou disponível na ferramenta nesta sessão, portanto não foi usada como evidência visual.
+
+Verificação final: 58 testes passaram, build TypeScript/Vite aprovado, alembic check sem diferenças. PostgreSQL operacional atualizado para 0013_lot_lookup_index. Novo backup dessa revisão criado e restauração verificada em banco temporário, removido ao concluir. A conferência usou portas temporárias 8011/5184 e não encerrou a instância preexistente em 8000/5173.
+
+Pendências para implantação: dados reais da equipe/cardápio/custos/estoque, tabela oficial, regras de consumo, acordo da meta, arquivo real da Stone, destino externo do backup e conferência acompanhada de um ciclo operacional. Retificação financeira de compras liquidadas/pagamentos continua sem fluxo completo; a retificação entregue é de custo gerencial por lote. Acesso remoto e autenticação seguem fora do escopo confirmado pelo usuário. Nada foi enviado ao GitHub.

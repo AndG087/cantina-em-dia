@@ -10,3 +10,17 @@
 .page-heading h1,.panel h2,.welcome-copy h2,.section-heading h2,.brand,.metric-value,.markdown h1{font-family:'Segoe UI',sans-serif}
 @media(max-width:680px){.sidebar{visibility:hidden}.sidebar.is-open{visibility:visible}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+.markdown table{width:100%;border-collapse:collapse;margin:20px 0;font-size:12px;line-height:1.55}.markdown th,.markdown td{padding:10px 12px;border:1px solid #dfe5da;text-align:left;vertical-align:top}.markdown th{background:#eef3e8;font-weight:600}.markdown input[type=checkbox]{margin-right:7px}.markdown blockquote{border-left:3px solid #9cad8c;margin:18px 0;padding:8px 18px;background:#f6f8f2}.document-toolbar{flex-wrap:wrap;gap:12px}.markdown a{overflow-wrap:anywhere}
+@media print{
+ @page{size:A4;margin:18mm}
+ body{background:white!important;color:black!important}
+ .sidebar,.sidebar-overlay,.topbar,.page-footer,.document-toolbar,.toast,.error-banner,.page-heading{display:none!important}
+ .main-shell{margin:0!important}.app-shell,main,.main-shell{display:block!important;min-height:0!important;padding:0!important;width:auto!important}
+ .document-view{border:0!important;box-shadow:none!important;background:white!important;overflow:visible!important}
+ .markdown{padding:0!important;font-size:11pt!important;line-height:1.5!important;color:black!important}
+ .markdown h1{font-size:22pt!important}.markdown h2{font-size:15pt!important;margin-top:18pt!important}.markdown h3{font-size:12pt!important}
+ .markdown h1,.markdown h2,.markdown h3{color:black!important;break-after:avoid}
+ .markdown p,.markdown li{orphans:3;widows:3}.markdown tr,.markdown blockquote{break-inside:avoid}.markdown thead{display:table-header-group}
+ .markdown table{font-size:9pt!important}.markdown th,.markdown td{padding:6pt;border-color:#bbb!important}.markdown a{color:black!important;text-decoration:underline}
+}

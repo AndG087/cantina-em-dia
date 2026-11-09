@@ -43,7 +43,7 @@ def test_database_failure_is_not_reported_as_healthy(client, monkeypatch):
 
 def test_documents_are_allowlisted_and_readable(client):
     docs = client.get("/api/documents").json()
-    assert len(docs) == 4
+    assert {d["id"] for d in docs} == {"guia", "mapa", "projeto", "sistema", "perguntas", "desenvolvimento"}
     for document in docs:
         response = client.get(f"/api/documents/{document['id']}")
         assert response.status_code == 200

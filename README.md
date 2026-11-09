@@ -140,6 +140,8 @@ scripts/                # Instalação, inicialização e testes locais
 
 ## Contexto para continuar
 
+- [Guia prático para administrar a cantina](GUIA_PRATICO_DA_CANTINA.md)
+- [Mapa das funcionalidades](MAPA_FUNCIONALIDADES.md)
 - [Estado atual e próxima etapa](ESTADO_DO_PROJETO.md)
 - [Projeto de gestão](PROJETO_GESTAO_CANTINA.md)
 - [Especificação do sistema](ESPECIFICACAO_SISTEMA_PYTHON.md)
@@ -192,4 +194,8 @@ Em **Preços e custos**, registre a nova tabela com preço, data e hora de iníc
 
 Em **Preços e custos**, prepare a correção de um lote de entrada e confira as vendas e produções afetadas antes de confirmar. Os relatórios consultados usam o custo gerencial corrigido; os valores originais e apurações guardadas ficam preservados. Lotes já consumidos são elegíveis. Para produtos produzidos na cantina, corrija os ingredientes/embalagens de origem. Uma nova movimentação ou revisão exige refazer a prévia. A operação não altera notas, despesas, pagamentos, quantidade ou custo padrão do cadastro. Correções financeiras de compras liquidadas ainda não têm um fluxo completo de ajustes. Registre a pendência e confira separadamente.
 
-A estrutura atual é `0012_cost_revisions`. Como os backups exigem a mesma revisão, preserve o código correspondente às cópias antigas e crie/teste uma nova cópia depois de atualizar. O uso permanece exclusivamente local, conforme confirmado pelo usuário.
+A estrutura atual é `0013_lot_lookup_index`. Como os backups exigem a mesma revisão, preserve o código correspondente às cópias antigas e crie/teste uma nova cópia depois de atualizar. O uso permanece exclusivamente local, conforme confirmado pelo usuário.
+
+## Aprender a administrar e usar o sistema
+
+Abra **Documentos** e comece pelo **Guia prático da cantina**. Ele reúne a implantação, rotina de duas a três horas à tarde, mensagens para a equipe, conferência de dinheiro e recebimentos, compras, estoque, marmitas, equipe e fechamento mensal, com exemplos fictícios e plano dos primeiros trinta dias. O **Mapa das funcionalidades** explica cada módulo, seus dados de entrada, resultados, regras, limites e conexões. Seus atalhos abrem os módulos dentro da aplicação. Ambos podem ser baixados em Markdown; há também a opção de imprimir ou salvar PDF pelo navegador. Tabelas e listas de conferência são exibidas na leitura.

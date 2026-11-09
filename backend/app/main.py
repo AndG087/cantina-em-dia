@@ -62,6 +62,8 @@ async def protect_local_mutations(request, call_next):
         return JSONResponse(status_code=403, content={'detail': 'Origem não autorizada para alterar os dados locais.'})
     return await call_next(request)
 DOCUMENTS = {
+    "guia": ("Guia prático da cantina", "GUIA_PRATICO_DA_CANTINA.md", "Rotina de gestão do zero, exemplos e plano dos primeiros trinta dias."),
+    "mapa": ("Mapa das funcionalidades", "MAPA_FUNCIONALIDADES.md", "O que cada módulo faz, como usar e quais são seus limites."),
     "projeto": ("Projeto de gestão", "PROJETO_GESTAO_CANTINA.md", "Operação, responsabilidades e plano de implantação."),
     "sistema": ("Especificação do sistema", "ESPECIFICACAO_SISTEMA_PYTHON.md", "Requisitos do aplicativo e regras dos controles."),
     "perguntas": ("Perguntas para seu pai", "PERGUNTAS_PARA_O_PAI.md", "Informações que ainda precisamos levantar."),
