@@ -21,9 +21,10 @@ import Dashboard from './pages/Dashboard';
 import ImportsPage from './pages/ImportsPage';
 import AttachmentsPage from './pages/AttachmentsPage';
 import BackupsPage from './pages/BackupsPage';
+import AdjustmentsPage from './pages/AdjustmentsPage';
 import type { AppSettings, DatabaseHealth, DocumentInfo } from './api';
 
-type Page = 'overview' | 'roadmap' | 'documents' | 'settings' | 'team' | 'inventory' | 'purchases' | 'cash' | 'sales' | 'finance' | 'production' | 'reports' | 'imports' | 'attachments' | 'backups';
+type Page = 'overview' | 'roadmap' | 'documents' | 'settings' | 'team' | 'inventory' | 'purchases' | 'cash' | 'sales' | 'finance' | 'production' | 'reports' | 'imports' | 'attachments' | 'backups' | 'adjustments';
 type Icon = ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
 const nav: { id: Page; label: string; icon: Icon }[] = [
   { id: 'overview', label: 'Visão geral', icon: LayoutDashboard },
@@ -33,6 +34,7 @@ const nav: { id: Page; label: string; icon: Icon }[] = [
   { id: 'purchases', label: 'Compras e reembolsos', icon: ClipboardList },
   { id: 'production', label: 'Produção e marmitas', icon: Leaf },
   { id: 'inventory', label: 'Estoque', icon: Package },
+  { id: 'adjustments', label: 'Preços e custos', icon: Settings2 },
   { id: 'team', label: 'Equipe e escala', icon: Users },
   { id: 'reports', label: 'Relatórios e meta', icon: Target },
   { id: 'imports', label: 'Importação CSV', icon: Download },
@@ -136,6 +138,7 @@ export default function App() {
         {page === 'finance' && <FinancePage />}
         {page === 'purchases' && <PurchasesPage />}
         {page === 'inventory' && <InventoryPage />}
+        {page === 'adjustments' && <AdjustmentsPage />}
         {page === 'team' && <TeamPage />}
         {page === 'settings' && <><PageHeading eyebrow="SEU ESPAÇO DE TRABALHO" title="Configurações" description="Identifique a cantina e personalize seu espaço de gestão." />{settings ? <SettingsForm settings={settings} onSaved={value => { setSettings(value); setToast('Configurações salvas no PostgreSQL.'); }} /> : <div className="panel empty-panel"><Database size={30} /><h2>Configurações indisponíveis</h2><p>Conecte o banco de dados para consultar e salvar as informações.</p><button className="button secondary" onClick={() => void refresh()}>Verificar conexão</button></div>}<div className="inline-note"><ShieldCheck size={18} /><p>Os registros ficam neste computador. A sincronização com Stone e WhatsApp será avaliada nas etapas futuras.</p></div></>}
         <footer className="page-footer"><span>Cantina em Dia <span className="footer-dot">·</span> Dados locais</span><span>Versão local <span className="footer-dot">·</span> v0.3.0</span></footer>

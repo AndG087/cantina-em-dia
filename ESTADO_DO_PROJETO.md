@@ -1,6 +1,6 @@
 # Estado do projeto
 
-Atualizado em 7 de novembro de 2026. Repositório: `C:\dev\cantina-em-dia`. Versão local 0.3.0. Commits feitos localmente; não houve envio ao GitHub.
+Atualizado em 9 de novembro de 2026. Repositório: `C:\dev\cantina-em-dia`. Versão local 0.3.0. Commits feitos localmente; não houve envio ao GitHub.
 
 ## Continuidade autorizada
 
@@ -19,7 +19,7 @@ O usuário pediu “continue”. A pausa anterior foi encerrada e o desenvolvime
 | 7 | dd69a20 | Painel, relatórios mensais, metas e apurações preservadas |
 | 8a | 3e69f6e | CSV com mapeamento, prévia, validação e rastreabilidade |
 | 8b | e1aa190 | Anexos com integridade e arquivamento reversível |
-| 8c | Commit desta entrega | Backup consistente, importação e restauração em banco isolado |
+| 8c | 703f43d | Backup consistente, importação e restauração em banco isolado |
 
 ## Importação concluída
 
@@ -82,3 +82,7 @@ Quatro testes adicionais verificam integridade e download, rejeição de formato
 - Migração atual: `0010_backups`. Este formato exige a mesma revisão para recuperar; guardar o código correspondente junto à estratégia de cópia externa. Procedimento completo no README.
 
 Nove testes adicionais cobrem restauração real com decimais, datas, horários, JSON e sequências; recuperação física de anexo ausente; preservação do banco de origem; arquivos adulterados; perda do catálogo; duplicidade; limites; caminhos indevidos; revisão incompatível; proteção do banco original; criação diária pelo CLI e bloqueio de alterações iniciadas por outro site. Os dados, arquivos e bancos de recuperação dos testes são isolados e limpos.
+
+## Preços com vigência
+
+Etapa adicional autorizada em 9 de novembro. Nova tela Preços e custos, com origem, motivo, vigência e cancelamento de regras sem vendas posteriores. A venda manual e o CSV por item conferem o preço fixado na data da ocorrência. Uma regra não pode alcançar vendas já registradas. O cadastro inicial foi preservado pela migração 0011_price_rules. Alterações de preço devem usar o novo fluxo. Validação: 50 testes passaram e o build TypeScript/Vite passou. A próxima entrega é retificação gerencial de custos com histórico e prévia de impacto.

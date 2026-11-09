@@ -183,3 +183,7 @@ cd C:\dev\cantina-em-dia\backend
 `verify` remove a cópia temporária após a conferência. `restore` preserva um banco novo e informa seu nome; a troca da configuração continua manual. Em instalação nova, execute o setup e as migrações antes da recuperação. Se a URL estiver apontando para uma cópia que não existe mais, ajuste temporariamente apenas o nome do banco para `cantina_em_dia` antes de iniciar o PostgreSQL gerenciado.
 
 Continuidade pendente: validação com os relatórios reais da Stone, custos e preços da operação e regras ainda não informadas pela família.
+
+## Preços com vigência
+
+Em **Preços e custos**, registre a nova tabela com preço, data e hora de início, indicação de preço fixado pela licitação, documento de origem e justificativa. Datas futuras são permitidas. A venda é conferida pela data da ocorrência, inclusive na importação CSV por produto. Regras que alcançariam vendas já registradas são bloqueadas. Uma regra sem vendas posteriores pode ser cancelada com justificativa; o histórico permanece. Use Comprovantes e anexos para guardar o documento da tabela.

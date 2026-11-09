@@ -157,6 +157,8 @@ def import_records(data, db):
                                    unit_cost_cents=money_value(record['unit_cost'] or '0'), sale_price_cents=money_value(record['sale_price']) if record['sale_price'] else None,
                                    price_locked=flag in {'sim', 'true', '1'}, price_source=record['price_source'], cost_known=bool(record['unit_cost']))
                 entity = StockItem(**item_data.model_dump()); db.add(entity); db.flush(); key = entity.id
+                from .pricing import seed_price
+                seed_price(db, entity)
             elif data.kind in {'sales_summary', 'sales_items'}:
                 instant = csv_time(record['occurred_at']); payment_method = method(record['method'])
                 if db.scalar(select(Sale.id).where(Sale.external_id == external)):

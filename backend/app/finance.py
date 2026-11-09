@@ -14,6 +14,7 @@ from .models import CashSession, CashEntry, CashHandover, Sale, SaleLine, SalePa
 from .team import Input, assign, active_employee
 from .inventory import Qty, change_stock, valid_quantity
 from .purchases import Money
+from .pricing import price_at
 
 router = APIRouter(prefix='/api', tags=['Caixa e financeiro'])
 DB = Annotated[Session, Depends(get_session)]
@@ -217,11 +218,12 @@ def create_sale_record(db, data):
         if item.kind != 'product' or not item.active:
             raise HTTPException(422, 'Selecione um produto ativo para venda.')
         valid_quantity(item, line.quantity)
-        if item.price_locked and item.sale_price_cents != line.unit_price_cents:
+        price = price_at(db, item, data.occurred_at)
+        if price['price_locked'] and price['sale_price_cents'] != line.unit_price_cents:
             raise HTTPException(409, 'Preço diferente do valor fixado pela licitação.')
         value = int((line.quantity * line.unit_price_cents).quantize(Decimal(1), rounding=ROUND_HALF_UP))
         subtotal += value
-        if not item.price_locked:
+        if not price['price_locked']:
             discountable += value
     if data.discount_cents > discountable:
         raise HTTPException(422, 'Desconto excede o valor dos itens com preço livre.')

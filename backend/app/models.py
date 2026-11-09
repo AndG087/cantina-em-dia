@@ -98,6 +98,20 @@ class StockItem(Base):
     cost_known: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
 
 
+class PriceRule(Base):
+    __tablename__ = 'price_rules'
+    __table_args__ = (CheckConstraint('price_cents IS NULL OR price_cents >= 0', name='nonnegative_price_rule'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey('stock_items.id'), index=True)
+    effective_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    price_cents: Mapped[int | None]
+    locked: Mapped[bool] = mapped_column(Boolean)
+    source: Mapped[str] = mapped_column(String(300))
+    reason: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class StockLot(Base):
     __tablename__ = "stock_lots"
     __table_args__ = (CheckConstraint("balance >= 0", name="nonnegative_lot"),)

@@ -24,6 +24,7 @@ from .reports import router as reports_router
 from .imports import router as imports_router
 from .attachments import router as attachments_router
 from .backups import router as backups_router
+from .pricing import router as pricing_router
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 
@@ -48,6 +49,7 @@ app.include_router(reports_router)
 app.include_router(imports_router)
 app.include_router(attachments_router)
 app.include_router(backups_router)
+app.include_router(pricing_router)
 
 
 @app.middleware('http')

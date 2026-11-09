@@ -11,6 +11,7 @@ from .database import get_session
 from .domain import audit, aware, get_or_404, quantity, rows, TZ, lock
 from .models import StockItem, StockLot, StockMovement, InventoryCount
 from .team import Input
+from .pricing import price_at, seed_price
 
 router = APIRouter(prefix="/api", tags=["Estoque"])
 DB = Annotated[Session, Depends(get_session)]
@@ -120,7 +121,8 @@ def change_stock(db, item_id, amount, kind, reason, occurred_at, *, lot_code="",
 
 @router.get('/items')
 def items(db: DB):
-    return rows(db, StockItem, 2000)
+    from .domain import now
+    return [{**{c.name: getattr(item, c.name) for c in StockItem.__table__.columns}, **price_at(db, item, now())} for item in rows(db, StockItem, 2000)]
 
 
 @router.post('/items', status_code=201)
@@ -130,6 +132,7 @@ def create_item(data: ItemIn, db: DB):
         raise HTTPException(409, 'Já existe um item com esse código.')
     values = data.model_dump(); values['cost_known'] = data.cost_known or data.unit_cost_cents > 0
     item = StockItem(**values); db.add(item); db.flush()
+    seed_price(db, item)
     audit(db, 'item', item.id, 'created', data.model_dump()); db.commit(); db.refresh(item)
     return item
 
@@ -143,11 +146,13 @@ def update_item(key: int, data: ItemIn, db: DB):
     has_movements = db.scalar(select(StockMovement.id).where(StockMovement.item_id == key).limit(1))
     if has_movements and (data.unit != item.unit or data.kind != item.kind):
         raise HTTPException(409, 'Unidade e tipo não podem mudar depois de movimentar o estoque.')
-    if item.price_locked and (data.sale_price_cents != item.sale_price_cents or not data.price_locked):
-        raise HTTPException(409, 'Preço fixado pela licitação. Cadastre uma nova regra com documento de origem antes de alterá-lo.')
+    from .domain import now
+    current_price = price_at(db, item, now())
+    if any(getattr(data, field) != value for field, value in current_price.items()):
+        raise HTTPException(409, 'Para alterar preço, origem ou regra de licitação, use Preços e custos e registre uma nova vigência.')
     before = {key: getattr(item, key) for key in data.model_fields}
     for field, value in data.model_dump().items():
-        setattr(item, field, value)
+        if field not in current_price: setattr(item, field, value)
     item.cost_known = data.cost_known or data.unit_cost_cents > 0
     audit(db, 'item', key, 'updated', {'before': before, 'after': data.model_dump()}); db.commit(); db.refresh(item)
     return item
