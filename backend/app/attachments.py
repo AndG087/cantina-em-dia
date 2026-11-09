@@ -16,17 +16,17 @@ from . import storage
 from .database import get_session
 from .domain import audit, get_or_404, lock, now
 from .inventory import ReasonIn
-from .models import Attachment, Expense, ExpensePayment, Sale, Purchase, StockMovement, InventoryCount, ProductionRun, CashSession, Employee
+from .models import Attachment, Expense, ExpensePayment, Sale, Purchase, StockMovement, InventoryCount, ProductionRun, CashSession, Employee, PriceRule, CostRevision
 from .team import Input
 
 router = APIRouter(prefix='/api', tags=['Comprovantes e anexos'])
 DB = Annotated[Session, Depends(get_session)]
-Entity = Literal['inbox', 'expense', 'expense_payment', 'sale', 'purchase', 'stock', 'inventory', 'production', 'cash', 'employee']
+Entity = Literal['inbox', 'expense', 'expense_payment', 'sale', 'purchase', 'stock', 'inventory', 'production', 'cash', 'employee', 'price_rule', 'cost_revision']
 MAX_BYTES = 8 * 1024 * 1024
 ENTITY_MODELS = {'expense': Expense, 'expense_payment': ExpensePayment, 'sale': Sale, 'purchase': Purchase, 'stock': StockMovement,
-                 'inventory': InventoryCount, 'production': ProductionRun, 'cash': CashSession, 'employee': Employee}
+                 'inventory': InventoryCount, 'production': ProductionRun, 'cash': CashSession, 'employee': Employee, 'price_rule': PriceRule, 'cost_revision': CostRevision}
 ENTITY_LABELS = {'inbox': 'Recebidos / ainda não vinculados', 'expense': 'Despesa', 'expense_payment': 'Pagamento / reembolso', 'sale': 'Venda',
-                 'purchase': 'Pedido de compra', 'stock': 'Movimento de estoque', 'inventory': 'Contagem física', 'production': 'Produção', 'cash': 'Caixa', 'employee': 'Funcionário / treinamento'}
+                 'purchase': 'Pedido de compra', 'stock': 'Movimento de estoque', 'inventory': 'Contagem física', 'production': 'Produção', 'cash': 'Caixa', 'employee': 'Funcionário / treinamento', 'price_rule': 'Vigência de preço', 'cost_revision': 'Correção de custo'}
 MEDIA = {'.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.txt': 'text/plain',
          '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg', '.opus': 'audio/ogg', '.wav': 'audio/wav'}
 

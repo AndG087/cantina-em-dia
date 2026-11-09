@@ -69,7 +69,7 @@ def valid_quantity(item, amount):
 
 
 def change_stock(db, item_id, amount, kind, reason, occurred_at, *, lot_code="", expiry=None, unit_cost_cents=None, reference_type=None, reference_id=None, specific_lot=None, reversal_of=None, cost_known_override=None):
-    aware(occurred_at)
+    aware(occurred_at); lock(db, 904)
     item = item_locked(db, item_id)
     if not item.active and kind not in {'reversal', 'sale_return'}:
         raise HTTPException(409, "O item está inativo.")
@@ -105,9 +105,12 @@ def change_stock(db, item_id, amount, kind, reason, occurred_at, *, lot_code="",
         if remaining:
             raise HTTPException(409, f"Não há lote disponível nessa data para {item.name}. Confira validade, recebimento e quantidades.")
     item.balance += amount
+    from .valuation import CostBook
+    costs = CostBook(db)
     for lot, part in pieces:
-        movement = StockMovement(item_id=item_id, lot_id=lot.id, quantity=part, kind=kind, reason=reason, unit_cost_cents=lot.unit_cost_cents, occurred_at=occurred_at,
-                                 reference_type=reference_type, reference_id=reference_id, reversal_of=reversal_of, cost_known=lot.cost_known)
+        effective_cost, effective_known = costs.lot(lot.id)
+        movement = StockMovement(item_id=item_id, lot_id=lot.id, quantity=part, kind=kind, reason=reason, unit_cost_cents=effective_cost, occurred_at=occurred_at,
+                                 reference_type=reference_type, reference_id=reference_id, reversal_of=reversal_of, cost_known=effective_known)
         db.add(movement); db.flush(); results.append(movement)
         audit(db, 'stock', movement.id, kind, {'item_id': item_id, 'quantity': part, 'reason': reason, 'reference': reference_type})
     # Lançamentos tardios não podem criar estoque negativo em um instante anterior.
@@ -185,8 +188,14 @@ def reverse_movement(key: int, data: ReasonIn, db: DB):
 
 
 @router.get('/stock-lots')
-def lots(db: DB):
-    return db.scalars(select(StockLot).where(StockLot.balance > 0).order_by(StockLot.expiry.asc().nulls_last()).limit(2000)).all()
+def lots(db: DB, include_empty: bool = False):
+    from .valuation import CostBook
+    costs = CostBook(db)
+    query = select(StockLot)
+    if not include_empty: query = query.where(StockLot.balance > 0)
+    return [{**{c.name: getattr(lot, c.name) for c in StockLot.__table__.columns},
+             'original_unit_cost_cents': lot.unit_cost_cents, 'unit_cost_cents': costs.lot(lot.id)[0], 'cost_known': costs.lot(lot.id)[1],
+             'produced': lot.id in costs.outputs} for lot in db.scalars(query.order_by(StockLot.id.desc()).limit(2000))]
 
 
 @router.get('/inventory-counts')

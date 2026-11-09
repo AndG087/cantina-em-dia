@@ -25,7 +25,7 @@ export function localNow() { return new Date(Date.now() - 3 * 3600000).toISOStri
 export function instant(value: unknown) { return `${String(value)}:00-03:00`; }
 export type Values = Record<string, string | boolean>;
 export type Field = { name: string; label: string; type?: string; required?: boolean; options?: { value: string | number; label: string }[]; value?: string; min?: string | number; max?: string | number; step?: string; hint?: string };
-export function RecordForm({ title, fields, onSubmit, submit = 'Salvar registro' }: { title: string; fields: Field[]; onSubmit: (values: Values) => Promise<void>; submit?: string }) {
+export function RecordForm({ title, fields, onSubmit, submit = 'Salvar registro', successMessage = 'Registro salvo.' }: { title: string; fields: Field[]; onSubmit: (values: Values) => Promise<void>; submit?: string; successMessage?: string }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
@@ -34,7 +34,7 @@ export function RecordForm({ title, fields, onSubmit, submit = 'Salvar registro'
     const values: Values = Object.fromEntries(new FormData(form).entries()) as Values;
     fields.filter(f => f.type === 'checkbox').forEach(f => { values[f.name] = new FormData(form).has(f.name); });
     setBusy(true); setMessage('');
-    try { await onSubmit(values); form.reset(); setError(false); setMessage('Registro salvo.'); }
+    try { await onSubmit(values); form.reset(); setError(false); setMessage(successMessage); }
     catch (e) { setError(true); setMessage(e instanceof Error ? e.message : 'Não foi possível salvar.'); }
     finally { setBusy(false); }
   }

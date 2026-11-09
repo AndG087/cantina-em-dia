@@ -16,6 +16,7 @@ from .database import get_session
 from .domain import TZ, now, audit, get_or_404, lock, rows
 from .models import Sale, SaleLine, SalePayment, Settlement, SaleRefund, Expense, ExpensePayment, StockItem, StockMovement, StockLot, ProductionRun, CashSession, CashHandover, Goal, GoalAssessment
 from .purchases import Money
+from .valuation import CostBook
 from .team import Input
 
 router = APIRouter(prefix='/api', tags=['Relatórios e meta'])
@@ -39,6 +40,7 @@ def rounded(value):
 
 def monthly_report(db, month):
     start, end = period(month)
+    costs = CostBook(db)
     sales = db.scalars(select(Sale).where(Sale.occurred_at >= start, Sale.occurred_at < end)).all()
     expenses = db.scalars(select(Expense).where(Expense.occurred_at >= start, Expense.occurred_at < end, Expense.voided.is_(False))).all()
     movements = db.scalars(select(StockMovement).where(StockMovement.occurred_at >= start, StockMovement.occurred_at < end)).all()
@@ -47,10 +49,14 @@ def monthly_report(db, month):
     valid = [sale for sale in sales if not sale.voided]
     net_sales = sum(s.total_cents for s in valid)
     gross_sales = sum(s.total_cents + s.discount_cents for s in sales)
-    cogs = sum(s.cost_cents for s in valid)
-    cancellations_cost = sum(s.cost_cents for s in sales if s.voided and not s.stock_returned)
+    cogs = sum(costs.sale(s)[0] for s in valid)
+    cancellations_cost = sum(costs.sale(s)[0] for s in sales if s.voided and not s.stock_returned)
     negative = [m for m in movements if m.quantity < 0 and (m.kind in {'loss', 'staff', 'complimentary', 'adjustment', 'production_loss'}) and not (m.reference_type == 'production' and m.reference_id in voided_runs)]
-    losses = rounded(sum(-m.quantity * m.unit_cost_cents for m in negative)) + cancellations_cost
+    originals = {m.id: m for m in costs.movements}
+    loss_kinds = {'loss', 'staff', 'complimentary', 'adjustment', 'production_loss'}
+    reversed_losses = [m for m in movements if m.quantity > 0 and m.reversal_of in originals
+                       and originals[m.reversal_of].quantity < 0 and originals[m.reversal_of].kind in loss_kinds]
+    losses = rounded(sum(-m.quantity * costs.lot(m.lot_id)[0] for m in negative + reversed_losses)) + cancellations_cost
     operating_expenses = sum(e.amount_cents for e in expenses if e.receipt_id is None and e.purpose != 'manager_compensation')
     manager_expenses = sum(e.amount_cents for e in expenses if e.receipt_id is None and e.purpose == 'manager_compensation')
     sale_fees = db.scalar(select(func.coalesce(func.sum(Settlement.fee_cents), 0)).join(SalePayment, Settlement.payment_id == SalePayment.id).join(Sale, SalePayment.sale_id == Sale.id).where(Sale.occurred_at >= start, Sale.occurred_at < end))
@@ -66,14 +72,14 @@ def monthly_report(db, month):
     missing_settlements = sum(1 for _, total, received_amount in pending_digital if total > received_amount)
     unmapped_sales = sum(1 for s in valid if not s.stock_applied)
     estimated_runs = sum(1 for r in productions if r.input_source != 'measured')
-    unknown_costs = sum(1 for s in valid if s.stock_applied and not s.cost_known) + sum(1 for m in negative if not m.cost_known)
+    unknown_costs = sum(1 for s in valid if s.stock_applied and not costs.sale(s)[1]) + sum(1 for m in negative if not costs.lot(m.lot_id)[1])
     completeness_notes = []
     if unmapped_sales: completeness_notes.append(f'{unmapped_sales} venda(s) importada(s) sem itens ou custo de estoque.')
     if estimated_runs: completeness_notes.append(f'{estimated_runs} produção(ões) com consumo estimado, sem medição confirmada.')
     if missing_settlements: completeness_notes.append(f'{missing_settlements} pagamento(s) digital(is) sem conciliação completa das taxas.')
     if unknown_costs: completeness_notes.append(f'{unknown_costs} registro(s) com custo de estoque ainda não confirmado.')
     complete = not completeness_notes
-    closing_stock = rounded(db.scalar(select(func.coalesce(func.sum(StockMovement.quantity * StockMovement.unit_cost_cents), 0)).where(StockMovement.occurred_at < end)))
+    closing_stock = rounded(sum(m.quantity * costs.lot(m.lot_id)[0] for m in costs.movements if m.occurred_at < end))
     daily = defaultdict(int)
     for sale in valid:
         daily[sale.occurred_at.astimezone(TZ).date().isoformat()] += sale.total_cents
@@ -91,7 +97,7 @@ def monthly_report(db, month):
     variable = max(0, basis - goal.target_cents) if goal and basis is not None else None
     cash_difference = db.scalar(select(func.coalesce(func.sum(CashSession.difference_cents), 0)).where(CashSession.closed_at >= start, CashSession.closed_at < end))
     handover_difference = db.scalar(select(func.coalesce(func.sum(CashHandover.difference_cents), 0)).where(CashHandover.occurred_at >= start, CashHandover.occurred_at < end))
-    return {'month': month, 'generated_at': now(), 'sales_count': len(valid), 'gross_sales_cents': gross_sales, 'sales_cents': net_sales,
+    return {'month': month, 'cost_revision_id': costs.revisions[-1].id if costs.revisions else 0, 'generated_at': now(), 'sales_count': len(valid), 'gross_sales_cents': gross_sales, 'sales_cents': net_sales,
             'discount_cents': sum(s.discount_cents for s in sales), 'cancelled_sales_cents': sum(s.total_cents for s in sales if s.voided),
             'cogs_cents': cogs, 'losses_and_staff_cents': losses, 'operating_expenses_cents': operating_expenses, 'manager_expenses_cents': manager_expenses,
             'purchase_expenses_cents': sum(e.amount_cents for e in expenses if e.receipt_id), 'all_expenses_cents': sum(e.amount_cents for e in expenses),
@@ -172,4 +178,7 @@ def assess_goal(data: AssessmentIn, db: DB):
 
 @router.get('/goal-assessments')
 def assessments(db: DB):
-    return rows(db, GoalAssessment)
+    from .models import CostRevision
+    latest = db.scalar(select(func.coalesce(func.max(CostRevision.id), 0)))
+    return [{**{c.name: getattr(row, c.name) for c in GoalAssessment.__table__.columns},
+             'has_later_cost_revision': latest > row.report.get('cost_revision_id', 0)} for row in rows(db, GoalAssessment)]

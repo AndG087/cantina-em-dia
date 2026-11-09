@@ -141,7 +141,7 @@ export default function App() {
         {page === 'adjustments' && <AdjustmentsPage />}
         {page === 'team' && <TeamPage />}
         {page === 'settings' && <><PageHeading eyebrow="SEU ESPAÇO DE TRABALHO" title="Configurações" description="Identifique a cantina e personalize seu espaço de gestão." />{settings ? <SettingsForm settings={settings} onSaved={value => { setSettings(value); setToast('Configurações salvas no PostgreSQL.'); }} /> : <div className="panel empty-panel"><Database size={30} /><h2>Configurações indisponíveis</h2><p>Conecte o banco de dados para consultar e salvar as informações.</p><button className="button secondary" onClick={() => void refresh()}>Verificar conexão</button></div>}<div className="inline-note"><ShieldCheck size={18} /><p>Os registros ficam neste computador. A sincronização com Stone e WhatsApp será avaliada nas etapas futuras.</p></div></>}
-        <footer className="page-footer"><span>Cantina em Dia <span className="footer-dot">·</span> Dados locais</span><span>Versão local <span className="footer-dot">·</span> v0.3.0</span></footer>
+        <footer className="page-footer"><span>Cantina em Dia <span className="footer-dot">·</span> Dados locais</span><span>Versão local <span className="footer-dot">·</span> v0.4.0</span></footer>
       </main>
     </div>
     {toast && <div className="toast" role="status"><span>{toast}</span><button className="icon-button" onClick={() => setToast('')} aria-label="Fechar aviso"><X size={17} /></button></div>}

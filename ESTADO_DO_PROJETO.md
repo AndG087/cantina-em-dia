@@ -1,6 +1,6 @@
 # Estado do projeto
 
-Atualizado em 9 de novembro de 2026. Repositório: `C:\dev\cantina-em-dia`. Versão local 0.3.0. Commits feitos localmente; não houve envio ao GitHub.
+Atualizado em 9 de novembro de 2026. Repositório: `C:\dev\cantina-em-dia`. Versão local 0.4.0. Commits feitos localmente; não houve envio ao GitHub.
 
 ## Continuidade autorizada
 
@@ -34,7 +34,7 @@ O usuário pediu “continue”. A pausa anterior foi encerrada e o desenvolvime
 
 ## Verificações finais desta etapa
 
-- 46 testes passaram em PostgreSQL isolado (`cantina_em_dia_test`).
+- 58 testes passaram em PostgreSQL isolado (`cantina_em_dia_test`).
 - Build TypeScript/Vite passou.
 - `alembic check` passou: nenhuma alteração de estrutura pendente em relação aos modelos.
 - Inicializador criou o primeiro backup local dos dados existentes. Pela interface, o teste restaurou essa cópia em outro banco, comparou os registros e removeu o banco temporário; a data de verificação apareceu no histórico.
@@ -58,8 +58,8 @@ Interface padrão: `http://127.0.0.1:5173`. Migrações são aplicadas pelo inic
 - Integração automática com Stone/WhatsApp. O que existe é lançamento manual e importação CSV assistida.
 - Adaptação e validação com o arquivo real exportado pela solução Stone contratada.
 - Confirmação dos nomes/horários da equipe, cardápio, tabela oficial de preços, regras de consumo e base/valor da meta.
-- Revisão com dados reais dos custos e regras antes do uso operacional definitivo. Retificações históricas de custos e preços precisam de tratamento adicional; os registros existentes e as apurações guardadas não devem ser sobrescritos silenciosamente.
-- Acesso por outros dispositivos, autenticação e publicação em rede. A versão atual é pessoal e local, em loopback.
+- Revisão com dados reais dos custos e regras antes do uso operacional definitivo. Retificação gerencial por lote e vigências de preço estão implementadas; retificações financeiras de notas, compras já liquidadas e pagamentos ainda exigem fluxo adicional.
+- Acesso remoto e autenticação não fazem parte do escopo atual: em 9 de novembro o usuário confirmou que somente ele acessará o sistema e que manterá o uso local em loopback.
 
 ## Dados e segurança do repositório
 
@@ -86,3 +86,7 @@ Nove testes adicionais cobrem restauração real com decimais, datas, horários,
 ## Preços com vigência
 
 Etapa adicional autorizada em 9 de novembro. Nova tela Preços e custos, com origem, motivo, vigência e cancelamento de regras sem vendas posteriores. A venda manual e o CSV por item conferem o preço fixado na data da ocorrência. Uma regra não pode alcançar vendas já registradas. O cadastro inicial foi preservado pela migração 0011_price_rules. Alterações de preço devem usar o novo fluxo. Validação: 50 testes passaram e o build TypeScript/Vite passou. A próxima entrega é retificação gerencial de custos com histórico e prévia de impacto.
+
+## Retificação gerencial de custos
+
+Correção por lote com documento, motivo, confirmação e prévia. Os registros originais e as apurações guardadas não são alterados. Uma camada de avaliação aplica a revisão aos relatórios, lotes, vendas e produções relacionadas, inclusive custos antes desconhecidos e lotes sem saldo. Novos movimentos usam o custo corrigido. Não altera nota, despesa, pagamento, quantidade ou custo padrão do cadastro. Uma prévia desatualizada é rejeitada. O histórico permite outra revisão para corrigir uma correção. Apurações antigas recebem aviso de revisão posterior. Documentos podem ser vinculados às regras de preço e às correções. Corrigido também o cálculo de perdas manuais estornadas no relatório. Validação desta entrega: 58 testes em PostgreSQL isolado e build TypeScript/Vite aprovados. Migração 0012_cost_revisions, versão 0.4.0.

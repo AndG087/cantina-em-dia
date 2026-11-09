@@ -2,7 +2,7 @@
 
 Sistema local de gestão da cantina do Senai em Paulista, desenvolvido por etapas com Python, React e PostgreSQL.
 
-## O que funciona nesta versão (0.3.0)
+## O que funciona nesta versão (0.4.0)
 
 - Painel com vendas, despesas, responsável pelo caixa, estoque e pendências registrados.
 - Equipe, escalas semanais, substituições pontuais, feriados e confirmação de responsabilidade.
@@ -85,7 +85,7 @@ npm.cmd run build
 npm.cmd test
 ```
 
-O build executa TypeScript e Vite. Os 46 testes atuais usam PostgreSQL de verdade em um banco **separado**, `cantina_em_dia_test`. Cobrem persistência, validação, escala, estoque, compras, financeiro, produção, relatórios, importação, anexos e recuperação de backup. Os testes de recuperação criam e removem bancos isolados com nomes gerados. Em PostgreSQL externo, o usuário precisa poder criar esses bancos dedicados.
+O build executa TypeScript e Vite. Os 58 testes atuais usam PostgreSQL de verdade em um banco **separado**, `cantina_em_dia_test`. Cobrem persistência, validação, escala, estoque, compras, financeiro, produção, relatórios, importação, anexos e recuperação de backup. Os testes de recuperação criam e removem bancos isolados com nomes gerados. Em PostgreSQL externo, o usuário precisa poder criar esses bancos dedicados.
 
 As portas padrão são 8000 (API) e 5173 (interface). Se outra instância estiver usando essas portas, encerre-a no terminal em que foi aberta ou configure `API_PORT` e `WEB_PORT` no `.env`. O inicializador não encerra processos alheios.
 
@@ -187,3 +187,9 @@ Continuidade pendente: validação com os relatórios reais da Stone, custos e p
 ## Preços com vigência
 
 Em **Preços e custos**, registre a nova tabela com preço, data e hora de início, indicação de preço fixado pela licitação, documento de origem e justificativa. Datas futuras são permitidas. A venda é conferida pela data da ocorrência, inclusive na importação CSV por produto. Regras que alcançariam vendas já registradas são bloqueadas. Uma regra sem vendas posteriores pode ser cancelada com justificativa; o histórico permanece. Use Comprovantes e anexos para guardar o documento da tabela.
+
+## Retificação de custos
+
+Em **Preços e custos**, prepare a correção de um lote de entrada e confira as vendas e produções afetadas antes de confirmar. Os relatórios consultados usam o custo gerencial corrigido; os valores originais e apurações guardadas ficam preservados. Lotes já consumidos são elegíveis. Para produtos produzidos na cantina, corrija os ingredientes/embalagens de origem. Uma nova movimentação ou revisão exige refazer a prévia. A operação não altera notas, despesas, pagamentos, quantidade ou custo padrão do cadastro. Correções financeiras de compras liquidadas ainda não têm um fluxo completo de ajustes. Registre a pendência e confira separadamente.
+
+A estrutura atual é `0012_cost_revisions`. Como os backups exigem a mesma revisão, preserve o código correspondente às cópias antigas e crie/teste uma nova cópia depois de atualizar. O uso permanece exclusivamente local, conforme confirmado pelo usuário.

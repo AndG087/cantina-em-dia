@@ -115,8 +115,10 @@ def produce(data: ProductionIn, db: DB):
 
 @router.get('/production-runs')
 def production_runs(db: DB):
+    from .valuation import CostBook, rounded
+    costs = CostBook(db)
     return [{'id': r.id, 'recipe_id': r.recipe_id, 'planned_output': r.planned_output, 'actual_output': r.actual_output, 'occurred_at': r.occurred_at,
-             'input_source': r.input_source, 'note': r.note, 'total_cost_cents': r.total_cost_cents, 'voided': r.voided,
+             'input_source': r.input_source, 'note': r.note, 'total_cost_cents': rounded(costs.production(r)[0]), 'original_total_cost_cents': r.total_cost_cents, 'voided': r.voided,
              'inputs': db.scalars(select(ProductionInput).where(ProductionInput.run_id == r.id)).all()} for r in rows(db, ProductionRun)]
 
 

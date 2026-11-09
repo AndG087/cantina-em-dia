@@ -259,10 +259,12 @@ def sale(data: SaleIn, db: DB):
 
 @router.get('/sales')
 def sales(db: DB):
+    from .valuation import CostBook
+    costs = CostBook(db)
     result = []
     for sale in rows(db, Sale):
         payments = db.scalars(select(SalePayment).where(SalePayment.sale_id == sale.id)).all()
-        result.append({'id': sale.id, 'occurred_at': sale.occurred_at, 'total_cents': sale.total_cents, 'cost_cents': sale.cost_cents, 'voided': sale.voided, 'stock_returned': sale.stock_returned, 'stock_applied': sale.stock_applied, 'note': sale.note, 'external_id': sale.external_id, 'payments': payments})
+        result.append({'id': sale.id, 'occurred_at': sale.occurred_at, 'total_cents': sale.total_cents, 'cost_cents': costs.sale(sale)[0], 'original_cost_cents': sale.cost_cents, 'voided': sale.voided, 'stock_returned': sale.stock_returned, 'stock_applied': sale.stock_applied, 'note': sale.note, 'external_id': sale.external_id, 'payments': payments})
     return result
 
 

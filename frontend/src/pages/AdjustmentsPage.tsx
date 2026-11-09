@@ -1,15 +1,14 @@
-import { useState } from 'react';
+import CostAdjustments from './CostAdjustments';
 import { DataTable, ErrorNote, ModuleHeading, RecordForm, cents, dateTime, instant, localNow, money, save, useRemote } from '../components/ui';
 
 type Item = { id: number; name: string; kind: string; active: boolean; sale_price_cents: number | null; price_locked: boolean };
 type Rule = { id: number; item_id: number; effective_from: string; price_cents: number | null; locked: boolean; source: string; reason: string; cancelled_at: string | null };
 export default function AdjustmentsPage() {
   const items = useRemote<Item[]>('/items'); const rules = useRemote<Rule[]>('/price-rules');
-  const [error] = useState('');
   async function refresh() { await Promise.all([items.refresh(), rules.refresh()]); }
   const products = (items.data || []).filter(i => i.kind === 'product' && i.active);
   const name = (id: number) => items.data?.find(i => i.id === id)?.name || `#${id}`;
-  return <><ModuleHeading title="Preços e custos" description="Registre as mudanças com documento de origem e preserve o histórico." onRefresh={() => void refresh()} /><ErrorNote errors={[items.error, rules.error, error]} />
+  return <><ModuleHeading title="Preços e custos" description="Registre as mudanças com documento de origem e preserve o histórico." onRefresh={() => void refresh()} /><ErrorNote errors={[items.error, rules.error]} />
     <div className="notice">O preço usado na venda é conferido pela data e hora em que ela ocorreu. Uma nova regra não muda vendas antigas. Para preços fixados pela licitação, informe a autorização correspondente, inclusive para liberar o preço.</div>
     <div className="forms-grid"><RecordForm title="Nova vigência de preço" submit="Registrar vigência" fields={[
       { name: 'item_id', label: 'Produto', options: products.map(i => ({ value: i.id, label: i.name })) },
@@ -29,5 +28,6 @@ export default function AdjustmentsPage() {
       { label: 'Preço', render: r => r.price_cents === null ? 'Não informado' : money(r.price_cents) }, { label: 'Tipo', render: r => r.locked ? 'Fixo' : 'Livre' },
       { label: 'Origem e motivo', render: r => `${r.source} · ${r.reason}` }, { label: 'Situação', render: r => r.cancelled_at ? 'Cancelada' : 'Registrada' },
     ]} />
+    <CostAdjustments names={items.data || []} />
   </>;
 }

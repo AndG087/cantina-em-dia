@@ -143,6 +143,20 @@ class StockMovement(Base):
     cost_known: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
 
 
+class CostRevision(Base):
+    __tablename__ = 'cost_revisions'
+    __table_args__ = (CheckConstraint('unit_cost_cents >= 0 AND previous_cost_cents >= 0', name='nonnegative_cost_revision'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    lot_id: Mapped[int] = mapped_column(ForeignKey('stock_lots.id'), index=True)
+    previous_cost_cents: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    previous_known: Mapped[bool] = mapped_column(Boolean)
+    unit_cost_cents: Mapped[Decimal] = mapped_column(Numeric(18, 6))
+    document: Mapped[str] = mapped_column(String(300))
+    reason: Mapped[str] = mapped_column(String(500))
+    impact: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class InventoryCount(Base):
     __tablename__ = "inventory_counts"
     id: Mapped[int] = mapped_column(primary_key=True)
