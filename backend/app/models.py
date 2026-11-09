@@ -130,7 +130,7 @@ class StockMovement(Base):
     __table_args__ = (UniqueConstraint("reversal_of", name="one_stock_reversal"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     item_id: Mapped[int] = mapped_column(ForeignKey("stock_items.id"), index=True)
-    lot_id: Mapped[int] = mapped_column(ForeignKey("stock_lots.id"))
+    lot_id: Mapped[int] = mapped_column(ForeignKey("stock_lots.id"), index=True)
     quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
     kind: Mapped[str] = mapped_column(String(30))
     reason: Mapped[str] = mapped_column(String(500))

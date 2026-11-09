@@ -105,10 +105,10 @@ def change_stock(db, item_id, amount, kind, reason, occurred_at, *, lot_code="",
         if remaining:
             raise HTTPException(409, f"Não há lote disponível nessa data para {item.name}. Confira validade, recebimento e quantidades.")
     item.balance += amount
-    from .valuation import CostBook
-    costs = CostBook(db)
+    from .valuation import lot_cost
+    costs = {}
     for lot, part in pieces:
-        effective_cost, effective_known = costs.lot(lot.id)
+        effective_cost, effective_known = lot_cost(db, lot, costs)
         movement = StockMovement(item_id=item_id, lot_id=lot.id, quantity=part, kind=kind, reason=reason, unit_cost_cents=effective_cost, occurred_at=occurred_at,
                                  reference_type=reference_type, reference_id=reference_id, reversal_of=reversal_of, cost_known=effective_known)
         db.add(movement); db.flush(); results.append(movement)

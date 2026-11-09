@@ -90,3 +90,7 @@ Etapa adicional autorizada em 9 de novembro. Nova tela Preços e custos, com ori
 ## Retificação gerencial de custos
 
 Correção por lote com documento, motivo, confirmação e prévia. Os registros originais e as apurações guardadas não são alterados. Uma camada de avaliação aplica a revisão aos relatórios, lotes, vendas e produções relacionadas, inclusive custos antes desconhecidos e lotes sem saldo. Novos movimentos usam o custo corrigido. Não altera nota, despesa, pagamento, quantidade ou custo padrão do cadastro. Uma prévia desatualizada é rejeitada. O histórico permite outra revisão para corrigir uma correção. Apurações antigas recebem aviso de revisão posterior. Documentos podem ser vinculados às regras de preço e às correções. Corrigido também o cálculo de perdas manuais estornadas no relatório. Validação desta entrega: 58 testes em PostgreSQL isolado e build TypeScript/Vite aprovados. Migração 0012_cost_revisions, versão 0.4.0.
+
+## Consulta de custos por lote
+
+Após a retificação, a consulta usada em novos movimentos foi ajustada para buscar apenas os lotes movimentados e suas origens. Isso evita carregar todo o histórico a cada venda. Índice por lote na migração 0013_lot_lookup_index. Os relatórios continuam avaliando os registros necessários para os custos históricos corrigidos. O teste de propagação para vendas futuras permanece na suíte.
