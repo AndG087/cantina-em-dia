@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { access } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -18,4 +18,7 @@ await run(process.execPath, [npm, '--prefix', 'frontend', 'install']);
 const python = path.join(root, '.venv/Scripts/python.exe');
 try { await access(python); } catch { await run('python', ['-m', 'venv', '.venv']); }
 await run(python, ['-m', 'pip', 'install', '-r', 'backend/requirements.lock.txt']);
+// Na primeira vez, cria os bancos e o usuário no MySQL (pede a senha do root).
+const env = await readFile(path.join(root, '.env'), 'utf8').catch(() => '');
+if (!env.includes('mysql+pymysql://')) await run(python, ['backend/setup_mysql.py']);
 console.log('\nInstalação concluída. Execute npm start.');

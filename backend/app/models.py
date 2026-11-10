@@ -1,14 +1,31 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import JSON, Boolean, CheckConstraint, Date, DateTime, ForeignKey, Numeric, String, UniqueConstraint, func
+from sqlalchemy import JSON, Boolean, CheckConstraint, Date, ForeignKey, Numeric, String, UniqueConstraint, text
+from sqlalchemy.dialects.mysql import DATETIME
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.types import TypeDecorator
 
 from .database import Base
 
 
+class UTCDateTime(TypeDecorator):
+    """O MySQL não guarda fuso horário: grava em UTC e devolve a data com fuso UTC."""
+    impl = DATETIME
+    cache_ok = True
+
+    def __init__(self):
+        super().__init__(fsp=6)
+
+    def process_bind_param(self, value, dialect):
+        return value.astimezone(timezone.utc).replace(tzinfo=None) if value is not None and value.tzinfo else value
+
+    def process_result_value(self, value, dialect):
+        return value.replace(tzinfo=timezone.utc) if value is not None else None
+
+
 def created_at():
-    return mapped_column(DateTime(timezone=True), server_default=func.now())
+    return mapped_column(UTCDateTime(), server_default=text('CURRENT_TIMESTAMP(6)'))
 
 
 # Calendário da escola
@@ -26,7 +43,7 @@ class SchoolCourse(Base):
     source: Mapped[str] = mapped_column(String(300))
     note: Mapped[str] = mapped_column(String(500))
     created_at: Mapped[datetime] = created_at()
-    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     cancel_reason: Mapped[str] = mapped_column(String(500), default='')
 
 
@@ -42,7 +59,7 @@ class SchoolEvent(Base):
     source: Mapped[str] = mapped_column(String(300))
     note: Mapped[str] = mapped_column(String(500))
     created_at: Mapped[datetime] = created_at()
-    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     cancel_reason: Mapped[str] = mapped_column(String(500), default='')
 
 
@@ -100,7 +117,7 @@ class PurchaseReceipt(Base):
     purchase_id: Mapped[int] = mapped_column(ForeignKey('purchases.id'))
     supplier_id: Mapped[int] = mapped_column(ForeignKey('suppliers.id'))
     document: Mapped[str] = mapped_column(String(120))
-    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    occurred_at: Mapped[datetime] = mapped_column(UTCDateTime(), index=True)
     total_cents: Mapped[int]
     invoice_total_cents: Mapped[int]
     invoice_note: Mapped[str] = mapped_column(String(500))
@@ -122,7 +139,7 @@ class StockMovement(Base):
     quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
     kind: Mapped[str] = mapped_column(String(20))
     reason: Mapped[str] = mapped_column(String(500))
-    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    occurred_at: Mapped[datetime] = mapped_column(UTCDateTime(), index=True)
     receipt_id: Mapped[int | None] = mapped_column(ForeignKey('purchase_receipts.id'))
 
 
@@ -130,7 +147,7 @@ class InventoryCount(Base):
     __tablename__ = 'inventory_counts'
     id: Mapped[int] = mapped_column(primary_key=True)
     item_id: Mapped[int] = mapped_column(ForeignKey('stock_items.id'))
-    counted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    counted_at: Mapped[datetime] = mapped_column(UTCDateTime(), index=True)
     expected: Mapped[Decimal] = mapped_column(Numeric(14, 3))
     counted: Mapped[Decimal] = mapped_column(Numeric(14, 3))
     difference: Mapped[Decimal] = mapped_column(Numeric(14, 3))
@@ -145,7 +162,7 @@ class Expense(Base):
     description: Mapped[str] = mapped_column(String(300))
     category: Mapped[str] = mapped_column(String(80))
     amount_cents: Mapped[int]
-    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    occurred_at: Mapped[datetime] = mapped_column(UTCDateTime(), index=True)
     payee: Mapped[str] = mapped_column(String(120))
     document: Mapped[str] = mapped_column(String(150))
     receipt_id: Mapped[int | None] = mapped_column(ForeignKey('purchase_receipts.id'), unique=True)
@@ -166,11 +183,11 @@ class CashSession(Base):
     __tablename__ = 'cash_sessions'
     __table_args__ = (UniqueConstraint('open_guard', name='one_open_cash_session'),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    opened_at: Mapped[datetime] = mapped_column(UTCDateTime(), index=True)
     opened_by: Mapped[str] = mapped_column(String(100))
     opening_cents: Mapped[int]
     open_guard: Mapped[int | None] = mapped_column(default=1)
-    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     closed_by: Mapped[str] = mapped_column(String(100), default='')
     cash_sales_cents: Mapped[int | None]
     pix_cents: Mapped[int | None]

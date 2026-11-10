@@ -1,6 +1,7 @@
-"""Estrutura inicial: calendário da escola, compras e estoque, caixa, despesas e relatório semanal."""
+"""Estrutura inicial no MySQL: calendário da escola, compras e estoque, caixa, despesas e relatório semanal."""
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import mysql
 
 revision = '0001_inicial'
 down_revision = None
@@ -14,17 +15,17 @@ def upgrade():
     sa.Column('status', sa.String(length=20), nullable=False),
     sa.Column('note', sa.String(length=1000), nullable=False),
     sa.Column('fingerprint', sa.String(length=64), nullable=False),
-    sa.Column('reviewed_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('reviewed_at', mysql.DATETIME(fsp=6), server_default=sa.text('CURRENT_TIMESTAMP(6)'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_cash_reviews_day'), 'cash_reviews', ['day'], unique=False)
     op.create_table('cash_sessions',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('opened_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('opened_at', mysql.DATETIME(fsp=6), nullable=False),
     sa.Column('opened_by', sa.String(length=100), nullable=False),
     sa.Column('opening_cents', sa.Integer(), nullable=False),
     sa.Column('open_guard', sa.Integer(), nullable=True),
-    sa.Column('closed_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('closed_at', mysql.DATETIME(fsp=6), nullable=True),
     sa.Column('closed_by', sa.String(length=100), nullable=False),
     sa.Column('cash_sales_cents', sa.Integer(), nullable=True),
     sa.Column('pix_cents', sa.Integer(), nullable=True),
@@ -42,13 +43,13 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('alert_key', sa.String(length=120), nullable=False),
     sa.Column('note', sa.String(length=1000), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', mysql.DATETIME(fsp=6), server_default=sa.text('CURRENT_TIMESTAMP(6)'), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('alert_key')
     )
     op.create_table('school_calendar_checks',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('checked_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('checked_at', mysql.DATETIME(fsp=6), server_default=sa.text('CURRENT_TIMESTAMP(6)'), nullable=False),
     sa.Column('source', sa.String(length=300), nullable=False),
     sa.Column('note', sa.String(length=1000), nullable=False),
     sa.PrimaryKeyConstraint('id')
@@ -63,8 +64,8 @@ def upgrade():
     sa.Column('students', sa.Integer(), nullable=True),
     sa.Column('source', sa.String(length=300), nullable=False),
     sa.Column('note', sa.String(length=500), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.Column('cancelled_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('created_at', mysql.DATETIME(fsp=6), server_default=sa.text('CURRENT_TIMESTAMP(6)'), nullable=False),
+    sa.Column('cancelled_at', mysql.DATETIME(fsp=6), nullable=True),
     sa.Column('cancel_reason', sa.String(length=500), nullable=False),
     sa.CheckConstraint('ends_on >= starts_on AND (students IS NULL OR students >= 0)', name='valid_school_course'),
     sa.PrimaryKeyConstraint('id')
@@ -78,8 +79,8 @@ def upgrade():
     sa.Column('effect', sa.String(length=20), nullable=False),
     sa.Column('source', sa.String(length=300), nullable=False),
     sa.Column('note', sa.String(length=500), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.Column('cancelled_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('created_at', mysql.DATETIME(fsp=6), server_default=sa.text('CURRENT_TIMESTAMP(6)'), nullable=False),
+    sa.Column('cancelled_at', mysql.DATETIME(fsp=6), nullable=True),
     sa.Column('cancel_reason', sa.String(length=500), nullable=False),
     sa.CheckConstraint('ends_on >= starts_on', name='valid_school_event'),
     sa.PrimaryKeyConstraint('id')
@@ -107,7 +108,7 @@ def upgrade():
     sa.Column('version', sa.Integer(), nullable=False),
     sa.Column('note', sa.String(length=1000), nullable=False),
     sa.Column('snapshot', sa.JSON(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', mysql.DATETIME(fsp=6), server_default=sa.text('CURRENT_TIMESTAMP(6)'), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('week_start', 'version', name='unique_weekly_report_version')
     )
@@ -115,7 +116,7 @@ def upgrade():
     op.create_table('inventory_counts',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('item_id', sa.Integer(), nullable=False),
-    sa.Column('counted_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('counted_at', mysql.DATETIME(fsp=6), nullable=False),
     sa.Column('expected', sa.Numeric(precision=14, scale=3), nullable=False),
     sa.Column('counted', sa.Numeric(precision=14, scale=3), nullable=False),
     sa.Column('difference', sa.Numeric(precision=14, scale=3), nullable=False),
@@ -130,7 +131,7 @@ def upgrade():
     sa.Column('requested_by', sa.String(length=100), nullable=False),
     sa.Column('note', sa.String(length=1000), nullable=False),
     sa.Column('status', sa.String(length=20), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('created_at', mysql.DATETIME(fsp=6), server_default=sa.text('CURRENT_TIMESTAMP(6)'), nullable=False),
     sa.ForeignKeyConstraint(['supplier_id'], ['suppliers.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -151,7 +152,7 @@ def upgrade():
     sa.Column('purchase_id', sa.Integer(), nullable=False),
     sa.Column('supplier_id', sa.Integer(), nullable=False),
     sa.Column('document', sa.String(length=120), nullable=False),
-    sa.Column('occurred_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('occurred_at', mysql.DATETIME(fsp=6), nullable=False),
     sa.Column('total_cents', sa.Integer(), nullable=False),
     sa.Column('invoice_total_cents', sa.Integer(), nullable=False),
     sa.Column('invoice_note', sa.String(length=500), nullable=False),
@@ -166,7 +167,7 @@ def upgrade():
     sa.Column('description', sa.String(length=300), nullable=False),
     sa.Column('category', sa.String(length=80), nullable=False),
     sa.Column('amount_cents', sa.Integer(), nullable=False),
-    sa.Column('occurred_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('occurred_at', mysql.DATETIME(fsp=6), nullable=False),
     sa.Column('payee', sa.String(length=120), nullable=False),
     sa.Column('document', sa.String(length=150), nullable=False),
     sa.Column('receipt_id', sa.Integer(), nullable=True),
@@ -193,7 +194,7 @@ def upgrade():
     sa.Column('quantity', sa.Numeric(precision=14, scale=3), nullable=False),
     sa.Column('kind', sa.String(length=20), nullable=False),
     sa.Column('reason', sa.String(length=500), nullable=False),
-    sa.Column('occurred_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('occurred_at', mysql.DATETIME(fsp=6), nullable=False),
     sa.Column('receipt_id', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['item_id'], ['stock_items.id'], ),
     sa.ForeignKeyConstraint(['receipt_id'], ['purchase_receipts.id'], ),

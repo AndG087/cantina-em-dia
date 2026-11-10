@@ -1,10 +1,9 @@
 import { spawn } from 'node:child_process';
 import net from 'node:net';
 import path from 'node:path';
-import { config, ensurePostgres, migrate, root, python, exists, run } from './common.mjs';
+import { config, migrate, root, python, exists, run } from './common.mjs';
 
 const children = [];
-let stopDatabase = async () => {};
 let stopping = false;
 
 async function shutdown(code = 0) {
@@ -19,7 +18,6 @@ async function shutdown(code = 0) {
       });
     }
   }
-  await stopDatabase().catch(() => console.error('Não foi possível parar o PostgreSQL. Confira o log local.'));
   process.exit(code);
 }
 process.on('SIGINT', () => shutdown());
@@ -53,7 +51,6 @@ try {
   const cfg = await config();
   await assertFree(cfg.apiPort);
   await assertFree(cfg.webPort);
-  stopDatabase = await ensurePostgres(cfg);
   const env = { ...cfg.values, PYTHONUNBUFFERED: '1', PYTHONUTF8: '1' };
   await migrate(env);
   if (!/^(0|false|off|no|n|f)$/i.test(String(cfg.values.CANTINA_AUTO_BACKUP || '1'))) {
@@ -67,7 +64,7 @@ try {
   console.log(`\nCantina em Dia: http://127.0.0.1:${cfg.webPort}\nAPI: http://127.0.0.1:${cfg.apiPort}/docs\nCtrl+C encerra os serviços desta sessão.\n`);
 } catch (error) {
   // Mensagens de bibliotecas podem conter parâmetros de conexão: mostrar só falhas conhecidas.
-  const safe = ['Execute ', 'A porta ', 'O serviço ', 'Comando ', 'Configure ', 'O PostgreSQL '];
-  console.error(safe.some(prefix => error.message?.startsWith(prefix)) ? error.message : 'Não foi possível iniciar. Verifique o PostgreSQL, as dependências e o arquivo .env.');
+  const safe = ['Execute ', 'A porta ', 'O serviço ', 'Comando ', 'Configure '];
+  console.error(safe.some(prefix => error.message?.startsWith(prefix)) ? error.message : 'Não foi possível iniciar. Verifique se o serviço MySQL está ligado, as dependências e o arquivo .env.');
   await shutdown(1);
 }

@@ -12,7 +12,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 
-from sqlalchemy import Date, DateTime, Numeric, func, select, text
+from sqlalchemy import func, select, text
 
 from .config import settings
 from .database import Base, engine
@@ -39,8 +39,8 @@ def create(if_due=False) -> Path | None:
     stamp = now().astimezone(TZ)
     if if_due and any(folder.glob(f'cantina-{stamp:%Y%m%d}-*.json.gz')):
         return None
-    with engine.connect() as connection, connection.begin():
-        connection.execute(text('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ'))
+    # Uma única transação REPEATABLE READ: todas as tabelas do mesmo instante.
+    with engine.connect().execution_options(isolation_level='REPEATABLE READ') as connection, connection.begin():
         data = export(connection)
     path = folder / f'cantina-{stamp:%Y%m%d-%H%M%S}.json.gz'
     path.write_bytes(dump(data))
@@ -48,13 +48,14 @@ def create(if_due=False) -> Path | None:
 
 
 def convert(column, value):
-    if value is None:
-        return None
-    if isinstance(column.type, DateTime):
+    kind = getattr(column.type, 'impl', column.type).python_type
+    if value is None or kind in (dict, list):
+        return value
+    if kind is datetime:
         return datetime.fromisoformat(value)
-    if isinstance(column.type, Date):
+    if kind is date:
         return date.fromisoformat(value)
-    if isinstance(column.type, Numeric):
+    if kind is Decimal:
         return Decimal(value)
     return value
 
@@ -69,7 +70,6 @@ def restore(path, connection):
         rows = [{key: convert(table.c[key], value) for key, value in row.items()} for row in data['tables'].get(table.name, [])]
         if rows:
             connection.execute(table.insert(), rows)
-        connection.execute(text(f"SELECT setval(pg_get_serial_sequence('{table.name}', 'id'), COALESCE(MAX(id), 0) + 1, false) FROM {table.name}"))
 
 
 def main(args):

@@ -36,7 +36,7 @@ async def local_origin_only(request, call_next):
 async def database_error(request, exc):
     # Não expor a URL de conexão nem parâmetros.
     logging.getLogger('cantina').error('Operação de banco falhou: %s', type(exc).__name__)
-    return JSONResponse(status_code=503, content={'detail': 'Banco indisponível ou desatualizado. Confira o PostgreSQL e as migrações.'})
+    return JSONResponse(status_code=503, content={'detail': 'Banco indisponível ou desatualizado. Confira se o serviço MySQL está ligado.'})
 
 
 @app.get('/api/health')
@@ -47,7 +47,7 @@ def health():
 @app.get('/api/health/database')
 def database_health():
     with engine.connect() as connection:
-        database = connection.execute(text('SELECT current_database()')).scalar_one()
+        database = connection.execute(text('SELECT DATABASE()')).scalar_one()
         revision = connection.execute(text('SELECT version_num FROM alembic_version')).scalar_one()
     if revision != ScriptDirectory.from_config(Config(str(ROOT / 'backend/alembic.ini'))).get_current_head():
         raise HTTPException(503, 'Migração pendente. Execute npm start para atualizar o banco.')

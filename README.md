@@ -16,21 +16,23 @@ Valores são conferências a partir do que foi lançado: um alerta ou diferença
 
 ## Instalar e iniciar (Windows)
 
-Requisitos: Windows x64, Python 3.12+ (comando `python`) e Node.js 22.12+. O PostgreSQL vem junto (pacote `@embedded-postgres`); não precisa de Docker.
+Requisitos: Windows x64, Python 3.12+ (comando `python`), Node.js 22.12+ e MySQL 8 ou mais novo rodando neste computador (serviço do Windows, porta 3306).
 
 ```powershell
 cd C:\dev\cantina-em-dia
-npm.cmd run setup   # só na primeira vez
+npm.cmd run setup   # só na primeira vez: pede a senha do root do MySQL
 npm.cmd start
 ```
 
-Abra http://127.0.0.1:5173 e mantenha o terminal aberto; **Ctrl+C** encerra tudo. O sistema só atende neste computador.
+Na primeira vez, o `setup` cria no MySQL os bancos `cantina_em_dia` e `cantina_em_dia_test` e o usuário `cantina`, com senha aleatória e acesso só a esses bancos, e grava a conexão no `.env`. A senha do root não é guardada. Para refazer só essa parte: `.venv\Scripts\python.exe backend\setup_mysql.py`.
+
+Abra http://127.0.0.1:5173 e mantenha o terminal aberto; **Ctrl+C** encerra o sistema (o MySQL continua ligado como serviço). O sistema só atende neste computador.
 
 ## Dados e cópias de segurança
 
-- O banco fica em `%LOCALAPPDATA%\CantinaEmDia\postgres`, fora do OneDrive. A senha gerada fica no `.env` (não versionado); guarde esse arquivo.
+- Os dados ficam no MySQL local, banco `cantina_em_dia` (dá para consultar pelo MySQL Workbench). A senha do usuário `cantina` fica no `.env`, que não vai para o Git.
 - A cada dia, o primeiro `npm.cmd start` cria uma cópia em `%LOCALAPPDATA%\CantinaEmDia\backups` (`cantina-AAAAMMDD-HHMMSS.json.gz`). Copie esses arquivos para um pendrive ou nuvem de vez em quando. Para desativar: `CANTINA_AUTO_BACKUP=0` no `.env`.
-- Restaurar: com o PostgreSQL ligado (`node scripts/database.mjs` em um terminal), em outro terminal crie um banco vazio, aplique as migrações e rode, dentro de `backend`:
+- Restaurar: num banco vazio já com a estrutura criada (o `npm.cmd start` cria a estrutura), rode dentro de `backend`:
 
 ```powershell
 ..\.venv\Scripts\python.exe -m app.backup restore "C:\caminho\cantina-AAAAMMDD-HHMMSS.json.gz"
@@ -38,13 +40,12 @@ Abra http://127.0.0.1:5173 e mantenha o terminal aberto; **Ctrl+C** encerra tudo
 
 A restauração só aceita banco vazio e cópia da mesma versão da estrutura (`0001_inicial`).
 
-Para usar um PostgreSQL já instalado, copie `.env.example` para `.env`, ajuste `DATABASE_URL` e use `CANTINA_MANAGED_POSTGRES=0`.
 
 ## Validar
 
 ```powershell
 npm.cmd run build   # TypeScript e Vite
-npm.cmd test        # testes em um banco separado, cantina_em_dia_test
+npm.cmd test        # testes no banco separado cantina_em_dia_test
 ```
 
 ## Organização
@@ -61,7 +62,8 @@ backend/app/
 backend/migrations/  estrutura do banco
 backend/tests/       um arquivo de testes por atividade
 frontend/src/pages/  uma tela por atividade
+backend/setup_mysql.py  prepara bancos e usuário no MySQL
 scripts/             instalação, inicialização e testes
 ```
 
-Versões anteriores, com vendas por item, equipe, produção, preços, metas, importação e anexos, estão no histórico do Git (até o commit `f8e8838`).
+Versões anteriores, com vendas por item, equipe, produção, preços, metas, importação e anexos, estão no histórico do Git (até o commit `f8e8838`). Até o commit `34a5e3b` o sistema usava PostgreSQL.

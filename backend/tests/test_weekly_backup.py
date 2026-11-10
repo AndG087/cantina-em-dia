@@ -41,7 +41,7 @@ def test_backup_restores_every_table(client, connection, tmp_path):
 
 def test_health_does_not_expose_database_failure(client, monkeypatch):
     assert client.get('/api/health/database').json()['database'] == 'cantina_em_dia_test'
-    unavailable = create_engine('postgresql+psycopg://test:private@127.0.0.1:1/unavailable', connect_args={'connect_timeout': 1})
+    unavailable = create_engine('mysql+pymysql://test:private@127.0.0.1:1/unavailable', connect_args={'connect_timeout': 1})
     monkeypatch.setattr(main, 'engine', unavailable)
     try:
         response = client.get('/api/health/database')

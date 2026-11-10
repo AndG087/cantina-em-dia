@@ -17,9 +17,9 @@ class Settings(BaseSettings):
 
     @field_validator('database_url')
     @classmethod
-    def postgres_only(cls, value: str) -> str:
-        if not value.startswith('postgresql+psycopg://'):
-            raise ValueError('Use uma URL PostgreSQL com o driver psycopg.')
+    def mysql_only(cls, value: str) -> str:
+        if not value.startswith('mysql+pymysql://'):
+            raise ValueError('Use uma URL MySQL com o driver PyMySQL (mysql+pymysql://).')
         return value
 
     @property
