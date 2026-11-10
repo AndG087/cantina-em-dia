@@ -12,6 +12,8 @@ Sistema local para acompanhar a cantina do Senai em Paulista. Ele cobre só as c
 
 A tela **Rotina da gestão** mostra se cada atividade está em dia, precisa de atenção ou está pendente.
 
+Uma descrição completa das funcionalidades, para leitura e impressão, está em `docs/Funcionalidades_Cantina_em_Dia.docx`.
+
 Valores são conferências a partir do que foi lançado: um alerta ou diferença pede verificação, não prova erro ou desvio. O sistema não consulta o Senai, a maquininha nem o banco.
 
 ## Instalar e iniciar (Windows)
