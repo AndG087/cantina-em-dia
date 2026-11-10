@@ -42,8 +42,8 @@ def week_totals(db, monday):
     start, end = day_start(monday), day_start(monday + timedelta(days=7))
     closed = db.scalars(select(CashSession).where(CashSession.opened_at >= start, CashSession.opened_at < end, CashSession.closed_at.is_not(None))).all()
     expenses = db.scalars(select(Expense).where(Expense.occurred_at >= start, Expense.occurred_at < end)).all()
-    cash, pix, card = (sum(getattr(r, field) for r in closed) for field in ('cash_sales_cents', 'pix_cents', 'card_cents'))
-    return {'sales_cents': cash + pix + card, 'cash_cents': cash, 'pix_cents': pix, 'card_cents': card, 'days_closed': len(closed),
+    cash, pix, card, voucher = (sum(getattr(r, field) or 0 for r in closed) for field in ('cash_sales_cents', 'pix_cents', 'card_cents', 'voucher_cents'))
+    return {'sales_cents': cash + pix + card + voucher, 'cash_cents': cash, 'pix_cents': pix, 'card_cents': card, 'voucher_cents': voucher, 'days_closed': len(closed),
             'difference_cents': sum(r.difference_cents for r in closed), 'expenses_cents': sum(e.amount_cents for e in expenses if e.receipt_id is None),
             'purchases_cents': sum(e.amount_cents for e in expenses if e.receipt_id is not None)}
 
@@ -98,7 +98,7 @@ def weekly_report(db, any_day):
     lines = [f'# Relatório semanal · {ddmm(monday)} a {sunday:%d/%m/%Y}', '',
              f"Cantina do Senai Paulista · gerado em {now().astimezone(TZ):%d/%m/%Y %H:%M}" + ('' if sunday < current_day else ' · **semana em andamento**'), '',
              '## Resumo', '', '| Indicador | Semana | Semana anterior | Variação |', '|---|---:|---:|---:|']
-    for label, key in [('Vendas informadas nos fechamentos', 'sales_cents'), ('Em dinheiro', 'cash_cents'), ('Pix', 'pix_cents'), ('Cartão', 'card_cents'),
+    for label, key in [('Vendas informadas nos fechamentos', 'sales_cents'), ('Em dinheiro', 'cash_cents'), ('Pix', 'pix_cents'), ('Cartão', 'card_cents'), ('Voucher', 'voucher_cents'),
                        ('Compras de mercadorias', 'purchases_cents'), ('Outras despesas', 'expenses_cents'), ('Diferenças de caixa', 'difference_cents')]:
         lines.append(f'| {label} | {brl(totals[key])} | {brl(previous[key])} | {variation(totals[key], previous[key])} |')
     lines += ['', '## Caixa: aberturas e fechamentos', '']
@@ -106,7 +106,7 @@ def weekly_report(db, any_day):
         lines += ['| Dia | Calendário | Vendas | Retiradas | Diferença | Conferência |', '|---|---|---:|---:|---:|---|']
         for d in cash:
             review = f" ({'sem ressalvas' if d['review']['status'] == 'ok' else 'com ressalvas'})" if d['state'] == 'reviewed' else ''
-            lines.append(f"| {WEEKDAYS[d['day'].weekday()][:3]} {ddmm(d['day'])} | {STATUS[d['calendar_status']]} | {brl(d['cash_sales_cents'] + d['pix_cents'] + d['card_cents'])} | "
+            lines.append(f"| {WEEKDAYS[d['day'].weekday()][:3]} {ddmm(d['day'])} | {STATUS[d['calendar_status']]} | {brl(d['cash_sales_cents'] + d['pix_cents'] + d['card_cents'] + d['voucher_cents'])} | "
                          f"{brl(d['withdrawals_cents'])} | {brl(d['difference_cents'])} | {d['state_label']}{review} |")
         issues = [f"- {ddmm(d['day'])}: {sentence(issue)}" for d in cash for issue in d['issues']]
         lines += [''] + (issues or ['Nenhum ponto de atenção nas aberturas e fechamentos.'])
@@ -142,7 +142,7 @@ def weekly_report(db, any_day):
 
     text = [f'*Relatório semanal da cantina* · {ddmm(monday)} a {ddmm(sunday)}', '',
             f"*Vendas:* {brl(totals['sales_cents'])} ({variation(totals['sales_cents'], previous['sales_cents'])} vs. semana anterior)",
-            f"Dinheiro {brl(totals['cash_cents'])} · Pix {brl(totals['pix_cents'])} · Cartão {brl(totals['card_cents'])}",
+            f"Dinheiro {brl(totals['cash_cents'])} · Pix {brl(totals['pix_cents'])} · Cartão {brl(totals['card_cents'])} · Voucher {brl(totals['voucher_cents'])}",
             f"*Compras:* {brl(totals['purchases_cents'])} · *Outras despesas:* {brl(totals['expenses_cents'])}",
             f"*Caixa:* {sum(1 for d in cash if d['state'] == 'reviewed')} dia(s) conferido(s), {len(pending_cash)} pendente(s) · diferenças {brl(totals['difference_cents'])}",
             f"*Notas:* {len(receipts)} recebida(s), {len(divergent)} com divergência · *Estoque:* {len(low)} item(ns) a repor",

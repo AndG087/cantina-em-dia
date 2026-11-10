@@ -20,7 +20,7 @@ DB = Annotated[Session, Depends(get_session)]
 
 SHIFTS = {'morning': 'Manhã', 'afternoon': 'Tarde', 'evening': 'Noite', 'full_day': 'Integral'}
 EVENT_KINDS = {'holiday': 'Feriado', 'recess': 'Recesso', 'vacation': 'Férias escolares', 'strike': 'Paralisação / greve', 'school_event': 'Evento da escola', 'other': 'Outro'}
-EFFECTS = {'closed': 'Cantina fechada', 'reduced': 'Movimento reduzido', 'normal': 'Sem alteração prevista', 'increased': 'Movimento maior'}
+EFFECTS = {'open': 'Funcionamento solicitado (fim de semana)', 'closed': 'Cantina fechada', 'reduced': 'Movimento reduzido', 'normal': 'Sem alteração prevista', 'increased': 'Movimento maior'}
 WEEKDAYS = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo']
 CHECK_INTERVAL_DAYS = 7
 
@@ -50,7 +50,7 @@ class EventIn(Input):
     title: str = Field(min_length=3, max_length=150)
     starts_on: date
     ends_on: date
-    effect: Literal['closed', 'reduced', 'normal', 'increased']
+    effect: Literal['open', 'closed', 'reduced', 'normal', 'increased']
     source: str = Field(min_length=3, max_length=300)
     note: str = Field(default='', max_length=500)
 
@@ -92,8 +92,10 @@ class CalendarBook:
     def day(self, day):
         weekday = day.weekday()
         events = [e for e in self.events if e.starts_on <= day <= e.ends_on]
-        reasons = ['Fim de semana'] if weekday >= 5 else []
-        status = 'closed' if weekday >= 5 else 'open'
+        # Sábado e domingo só abrem quando o SENAI solicita (evento com efeito "open").
+        weekend_closed = weekday >= 5 and not any(e.effect == 'open' for e in events)
+        reasons = ['Fim de semana'] if weekend_closed else []
+        status = 'closed' if weekend_closed else 'open'
         for event in events:
             reasons.append(f'{EVENT_KINDS[event.kind]}: {event.title} ({EFFECTS[event.effect].lower()})')
             if event.effect == 'closed':

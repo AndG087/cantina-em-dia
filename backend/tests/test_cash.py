@@ -7,7 +7,7 @@ def day(client, date, opening, cash_sales, counted, withdrawals=0, close=True):
     assert session.status_code == 201, session.text
     key = session.json()['id']
     if close:
-        closed = client.post(f'/api/cash-sessions/{key}/close', json={'closed_at': at(date, '21:00'), 'closed_by': 'Dona Gel', 'cash_sales_cents': cash_sales, 'pix_cents': 500,
+        closed = client.post(f'/api/cash-sessions/{key}/close', json={'closed_at': at(date, '22:00'), 'closed_by': 'Dona Gel', 'cash_sales_cents': cash_sales, 'pix_cents': 500, 'voucher_cents': 200,
                                                                      'card_cents': 300, 'withdrawals_cents': withdrawals, 'counted_cents': counted})
         assert closed.status_code == 200, closed.text
     return key
@@ -47,3 +47,13 @@ def test_daily_review_points_out_gaps(client):
     assert client.get('/api/cash-reviews/days', params={'end': '2026-11-03', 'days': 1}).json()[0]['state'] == 'reviewed'
     client.post(f'/api/cash-sessions/{second}/reopen', json={'reason': 'Correção da contagem'})
     assert client.get('/api/cash-reviews/days', params={'end': '2026-11-03', 'days': 1}).json()[0]['state'] == 'outdated'
+
+
+def test_contract_hours_and_voucher_in_daily_review(client):
+    key = client.post('/api/cash-sessions', json={'opened_at': at('2026-11-02', '08:10'), 'opened_by': 'Dona Gel', 'opening_cents': 1000}).json()['id']
+    client.post(f'/api/cash-sessions/{key}/close', json={'closed_at': at('2026-11-02', '20:30'), 'closed_by': 'Dona Gel', 'cash_sales_cents': 0, 'voucher_cents': 1500, 'counted_cents': 1000})
+    day = client.get('/api/cash-reviews/days', params={'end': '2026-11-02', 'days': 1}).json()[0]
+    assert day['voucher_cents'] == 1500
+    assert any('Abertura às 08:10' in issue for issue in day['issues']) and any('Fechamento às 20:30' in issue for issue in day['issues'])
+    report = client.get('/api/reports/weekly', params={'week': '2026-11-02'}).json()
+    assert report['totals']['voucher_cents'] == 1500 and report['totals']['sales_cents'] == 1500 and 'Voucher' in report['markdown']

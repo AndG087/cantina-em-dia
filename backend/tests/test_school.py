@@ -27,3 +27,12 @@ def test_calendar_check_is_recorded(client):
     assert client.post('/api/school/checks', json={'source': 'Coordenação', 'note': 'Sem mudanças'}).status_code == 201
     check = client.get('/api/school/calendar').json()['last_check']
     assert check['age_days'] == 0 and check['overdue'] is False
+
+
+def test_weekend_opens_only_when_requested(client):
+    saturday = client.get('/api/school/calendar', params={'start': '2026-11-07', 'days': 1}).json()['days'][0]
+    assert saturday['status'] == 'closed'
+    assert event(client, kind='school_event', title='Sábado letivo', starts_on='2026-11-07', ends_on='2026-11-07', effect='open').status_code == 201
+    saturday = client.get('/api/school/calendar', params={'start': '2026-11-07', 'days': 1}).json()['days'][0]
+    assert saturday['status'] == 'open' and saturday['cantina_open'] is True
+    assert any('sem abertura' in i for i in client.get('/api/cash-reviews/days', params={'end': '2026-11-07', 'days': 1}).json()[0]['issues'])

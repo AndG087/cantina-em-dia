@@ -192,6 +192,7 @@ class CashSession(Base):
     cash_sales_cents: Mapped[int | None]
     pix_cents: Mapped[int | None]
     card_cents: Mapped[int | None]
+    voucher_cents: Mapped[int | None]
     withdrawals_cents: Mapped[int | None]
     counted_cents: Mapped[int | None]
     expected_cents: Mapped[int | None]

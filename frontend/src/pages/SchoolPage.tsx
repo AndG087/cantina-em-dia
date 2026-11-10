@@ -10,7 +10,7 @@ type Calendar = { days: Day[]; active_courses: Course[]; starting_soon: Course[]
 
 const shifts: Record<string, string> = { morning: 'Manhã', afternoon: 'Tarde', evening: 'Noite', full_day: 'Integral' };
 const kinds: Record<string, string> = { holiday: 'Feriado', recess: 'Recesso', vacation: 'Férias escolares', strike: 'Paralisação / greve', school_event: 'Evento da escola', other: 'Outro' };
-const effects: Record<string, string> = { closed: 'Cantina fechada', reduced: 'Movimento reduzido', normal: 'Sem alteração prevista', increased: 'Movimento maior' };
+const effects: Record<string, string> = { open: 'Funcionamento solicitado (fim de semana)', closed: 'Cantina fechada', reduced: 'Movimento reduzido', normal: 'Sem alteração prevista', increased: 'Movimento maior' };
 const statusLook = { open: ['Normal', 'ok'], closed: ['Fechada', 'danger'], reduced: ['Reduzido', 'warn'], increased: ['Maior movimento', 'info'] } as const;
 const weekdays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 const options = (map: Record<string, string>) => Object.entries(map).map(([value, label]) => ({ value, label }));
@@ -44,6 +44,7 @@ export default function SchoolPage() {
   const c = calendar.data; const check = c?.last_check;
   const activeCourses = (courses.data || []).filter(x => !x.cancelled_at); const activeEvents = (events.data || []).filter(x => !x.cancelled_at);
   const students = c?.active_courses.reduce((sum, x) => sum + (x.students || 0), 0) || 0;
+  const weekendOpen = (c?.days || []).filter(d => ['sábado', 'domingo'].includes(d.weekday) && d.status !== 'closed');
   // Dias úteis agrupados por semana, em colunas de segunda a sexta.
   const weeks = new Map<string, (Day | null)[]>();
   for (const d of c?.days || []) {
@@ -78,6 +79,7 @@ export default function SchoolPage() {
         {Object.entries(d.courses_by_shift).filter(([, names]) => names.length).map(([shift, names]) => <small key={shift}>{shifts[shift]}: {names.length}</small>)}
         {d.reasons.map(r => <em key={r}>{r}</em>)}</article>)}</div>)}
     </section>
+    {weekendOpen.length > 0 && <div className="notice">Fim de semana com funcionamento solicitado: {weekendOpen.map(d => `${d.weekday} ${shortDate(d.day)}`).join(', ')}. Nesses dias o caixa também precisa de abertura e conferência.</div>}
     {c && (c.ending_soon.length > 0 || c.starting_soon.length > 0) && <div className="notice">{c.ending_soon.map(x => <div key={`e${x.id}`}>Termina em {shortDate(x.ends_on)}: <strong>{x.name}</strong>.</div>)}{c.starting_soon.map(x => <div key={`s${x.id}`}>Começa em {shortDate(x.starts_on)}: <strong>{x.name}</strong>.</div>)}</div>}
     <DataTable title="Cursos e turmas" rows={courses.data || []} columns={[{ label: 'Curso', render: x => x.name }, { label: 'Turno', render: x => x.shift_label }, { label: 'Período', render: x => `${shortDate(x.starts_on)} a ${shortDate(x.ends_on)}/${x.ends_on.slice(2, 4)}` }, { label: 'Dias', render: x => x.weekdays.map(d => weekdays[d]).join(', ') }, { label: 'Alunos', render: x => x.students ?? '—' }, { label: 'Situação', render: x => x.cancelled_at ? `Cancelado: ${x.cancel_reason}` : x.ends_on < start ? 'Encerrado' : x.starts_on > start ? 'Previsto' : 'Em andamento' }]} />
     <DataTable title="Feriados, recessos e paralisações" rows={events.data || []} columns={[{ label: 'Período', render: x => x.starts_on === x.ends_on ? shortDate(x.starts_on) : `${shortDate(x.starts_on)} a ${shortDate(x.ends_on)}` }, { label: 'Tipo', render: x => x.kind_label }, { label: 'Descrição', render: x => x.title }, { label: 'Efeito', render: x => x.effect_label }, { label: 'Fonte', render: x => x.source }, { label: 'Situação', render: x => x.cancelled_at ? `Cancelado: ${x.cancel_reason}` : 'Vigente' }]} />

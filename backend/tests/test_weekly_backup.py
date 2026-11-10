@@ -12,9 +12,9 @@ def test_weekly_report_versions_and_routine(client):
     expense(client, 5000, '2026-11-03')
     event(client, kind='recess', title='Recesso escolar', starts_on='2026-11-12', ends_on='2026-11-13', effect='reduced')
     report = client.get('/api/reports/weekly', params={'week': '2026-11-04'}).json()
-    assert report['week_start'] == '2026-11-02' and report['totals']['sales_cents'] == 2800 and report['totals']['expenses_cents'] == 5000
+    assert report['week_start'] == '2026-11-02' and report['totals']['sales_cents'] == 3000 and report['totals']['expenses_cents'] == 5000
     assert report['markdown'].startswith('# Relatório semanal · 02/11 a 08/11/2026') and 'Recesso escolar' in report['markdown']
-    assert '*Vendas:* R$ 28,00' in report['text'] and report['cash_pending_days'] >= 1
+    assert '*Vendas:* R$ 30,00' in report['text'] and report['cash_pending_days'] >= 1
     assert any('calendário da escola' in action for action in report['actions'])
     assert client.get('/api/reports/weekly', params={'week': '2099-01-05'}).status_code == 422
     assert 'relatorio-semanal-2026-11-02.md' in client.get('/api/reports/weekly.md', params={'week': '2026-11-02'}).headers['content-disposition']

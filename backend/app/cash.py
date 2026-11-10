@@ -1,13 +1,13 @@
 """Caixa: abertura, fechamento com os totais do dia e conferência diária.
 
-No fechamento, quem está na cantina informa as vendas em dinheiro, Pix e cartão, as
+No fechamento, quem está na cantina informa as vendas em dinheiro, Pix, cartão e voucher, as
 retiradas e o dinheiro contado. Esperado = troco + vendas em dinheiro − retiradas.
 A conferência diária aponta o que precisa de explicação; se os dados do dia mudarem
 depois de conferidos, a conferência fica desatualizada.
 """
 import hashlib
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,6 +23,8 @@ from .school import CalendarBook
 
 router = APIRouter(prefix='/api', tags=['Caixa'])
 DB = Annotated[Session, Depends(get_session)]
+# Horário de funcionamento exigido pelo contrato com o SENAI (segunda a sexta).
+CONTRACT_OPEN, CONTRACT_CLOSE = time(7, 30), time(22, 0)
 STATES = {'not_applicable': 'Sem movimento previsto', 'in_progress': 'Em andamento', 'pending': 'Aguardando conferência',
           'reviewed': 'Conferido', 'outdated': 'Alterado após a conferência'}
 
@@ -40,6 +42,7 @@ class CloseIn(Input):
     cash_sales_cents: Money
     pix_cents: Money = 0
     card_cents: Money = 0
+    voucher_cents: Money = 0
     withdrawals_cents: Money = 0
     counted_cents: Money
     note: str = Field(default='', max_length=500)
@@ -102,7 +105,7 @@ def reopen_cash(key: int, data: ReopenIn, db: DB):
     latest = db.scalar(select(CashSession).order_by(CashSession.opened_at.desc()).limit(1))
     if latest.id != key or row.closed_at is None:
         raise HTTPException(409, 'Só é possível reabrir o último caixa fechado.')
-    for field in ['closed_at', 'cash_sales_cents', 'pix_cents', 'card_cents', 'withdrawals_cents', 'counted_cents', 'expected_cents', 'difference_cents']:
+    for field in ['closed_at', 'cash_sales_cents', 'pix_cents', 'card_cents', 'voucher_cents', 'withdrawals_cents', 'counted_cents', 'expected_cents', 'difference_cents']:
         setattr(row, field, None)
     row.closed_by, row.open_guard, row.note = '', 1, f'{row.note} · Reaberto: {data.reason}'.strip(' ·')[:1000]
     db.commit(); db.refresh(row)
@@ -128,11 +131,17 @@ def cash_day(db, day, calendar_day, current_day):
     worked = bool(opened or carried)
     if calendar_day['cantina_open'] and not worked and day < current_day:
         issues.append('Dia de funcionamento sem abertura de caixa. Registre a abertura ou marque o dia como fechado no calendário.')
+    if day.weekday() < 5 and calendar_day['cantina_open'] and opened:
+        first, last = opened[0], opened[-1]
+        if first.opened_at.astimezone(TZ).time() > CONTRACT_OPEN:
+            issues.append(f'Abertura às {first.opened_at.astimezone(TZ):%H:%M}, depois das 07h30 exigidas no contrato.')
+        if last.closed_at and last.closed_at < end and last.closed_at.astimezone(TZ).time() < CONTRACT_CLOSE:
+            issues.append(f'Fechamento às {last.closed_at.astimezone(TZ):%H:%M}, antes das 22h00 exigidas no contrato.')
     if not calendar_day['cantina_open'] and opened:
         issues.append(f'Caixa aberto em dia previsto como fechado ({"; ".join(calendar_day["reasons"])}).')
     closed = [row for row in opened if row.closed_at]
     summary = {'day': day, 'sessions': [as_dict(row) for row in opened], 'carried': [row.id for row in carried],
-               'cash_sales_cents': sum(r.cash_sales_cents for r in closed), 'pix_cents': sum(r.pix_cents for r in closed), 'card_cents': sum(r.card_cents for r in closed),
+               'cash_sales_cents': sum(r.cash_sales_cents for r in closed), 'pix_cents': sum(r.pix_cents for r in closed), 'card_cents': sum(r.card_cents for r in closed), 'voucher_cents': sum(r.voucher_cents or 0 for r in closed),
                'withdrawals_cents': sum(r.withdrawals_cents for r in closed), 'difference_cents': sum(r.difference_cents for r in closed), 'issues': issues}
     fingerprint = hashlib.sha256(json.dumps(jsonable_encoder(summary), sort_keys=True).encode()).hexdigest()
     review = db.scalar(select(CashReview).where(CashReview.day == day).order_by(CashReview.reviewed_at.desc(), CashReview.id.desc()).limit(1))

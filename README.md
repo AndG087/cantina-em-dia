@@ -4,9 +4,9 @@ Sistema local para acompanhar a cantina do Senai em Paulista. Ele cobre só as c
 
 | Atividade | Tela | O que o sistema faz |
 |---|---|---|
-| **Calendário da escola**: cursos em andamento, feriados e paralisações | Calendário da escola | Cursos e turmas por turno, com alunos aproximados; feriados, recessos e paralisações com o efeito na cantina; registro de cada averiguação com a escola (vence em 7 dias). Dia com "cantina fechada" não exige caixa. |
+| **Calendário da escola**: cursos em andamento, feriados e paralisações | Calendário da escola | Cursos e turmas por turno, com alunos aproximados; feriados, recessos e paralisações com o efeito na cantina; registro de cada averiguação com a escola (vence em 7 dias). Dia com "cantina fechada" não exige caixa. Sábado e domingo podem abrir com um evento de "Funcionamento solicitado". |
 | **Compras**: comprar, conferir notas e quantidades, fazer o inventário | Compras e notas · Estoque e inventário | Pedido ao fornecedor e recebimento com o valor da nota (obrigatório). Se a nota não bate com os itens, exige explicação. Aponta custo 10% acima do estimado e itens que faltam chegar. A folha de inventário conta vários itens de uma vez. |
-| **Caixa**: conferir todo dia aberturas e fechamentos | Caixa | Abertura com troco e fechamento com vendas em dinheiro, Pix e cartão, retiradas e dinheiro contado. Aponta dia sem abertura, troco diferente do fechamento anterior, diferença de contagem e caixa sem fechar. Você registra a conferência de cada dia. |
+| **Caixa**: conferir todo dia aberturas e fechamentos | Caixa | Abertura com troco e fechamento com vendas em dinheiro, Pix, cartão e voucher, retiradas e dinheiro contado. Aponta dia sem abertura, troco diferente do fechamento anterior, diferença de contagem e caixa sem fechar. Também alerta para abertura após 07h30 e fechamento antes das 22h nos dias úteis de funcionamento. Você registra a conferência de cada dia. |
 | **Gestão**: relatório semanal | Relatório semanal | Semana comparada à anterior, com caixa, compras, estoque, gastos, calendário e pendências. Imprime ou salva em PDF, copia o texto para o WhatsApp, baixa em .md e guarda a versão entregue. |
 | **Despesas**: identificar gastos fora do padrão | Despesas | Aponta despesa 50% acima do usual da categoria, possível lançamento duplicado, categoria 30% acima da média e compra 15% mais cara que as anteriores do item. Você registra a explicação de cada alerta. |
 
@@ -40,7 +40,7 @@ Abra http://127.0.0.1:5173 e mantenha o terminal aberto; **Ctrl+C** encerra o si
 ..\.venv\Scripts\python.exe -m app.backup restore "C:\caminho\cantina-AAAAMMDD-HHMMSS.json.gz"
 ```
 
-A restauração só aceita banco vazio e cópia da mesma versão da estrutura (`0001_inicial`).
+A restauração só aceita banco vazio e cópia da mesma versão da estrutura (atualmente `0002_vale_refeicao`). Cópias anteriores à migração exigem um banco com a estrutura daquela versão.
 
 
 ## Validar
@@ -69,3 +69,15 @@ scripts/             instalação, inicialização e testes
 ```
 
 Versões anteriores, com vendas por item, equipe, produção, preços, metas, importação e anexos, estão no histórico do Git (até o commit `f8e8838`). Até o commit `34a5e3b` o sistema usava PostgreSQL.
+
+## Cadastro inicial da cantina
+
+O banco local recebeu 217 itens das listas de feira, bomboniere e salgados em 10/11/2026. Os saldos e mínimos começam em zero: use **Estoque e inventário** para conferir as unidades e registrar a contagem real. A quantidade da lista de compras não foi tratada como estoque disponível.
+
+Os arquivos locais `contratos/cadastrar_itens.py` e `contratos/Catalogo_inicial_referencia.csv` ficam fora do Git junto aos documentos de origem. O script pode ser executado novamente com `.venv\Scripts\python.exe contratos\cadastrar_itens.py`, com a API na porta 8000: preserva os itens já existentes. O CSV documenta os custos de referência disponíveis para 37 itens, sem criar compras ou despesas. No sistema, custos entram pelo recebimento das notas. Produtos embalados sem peso definido usam unidade de embalagem; confira isso antes da primeira movimentação.
+
+## Protótipo da interface (isolado)
+
+Com o frontend ligado por `npm.cmd start`, abra http://127.0.0.1:5173/proposta?cenario=rotina#home. A aplicação atual continua em `/`. Para ver o primeiro uso: http://127.0.0.1:5173/proposta?cenario=primeiro-uso#home.
+
+Essa rota usa somente dados fictícios no navegador e não consulta a API. As etapas e os registros aparecem no endereço; rascunhos e exemplos ficam separados por cenário. “Reiniciar exemplo” limpa somente o cenário escolhido. A análise e os limites estão em `docs/proposta-interface/revisao-react.md`.
