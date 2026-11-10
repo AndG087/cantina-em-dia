@@ -203,17 +203,61 @@ def counts(db: DB):
     return rows(db, InventoryCount)
 
 
-@router.post('/inventory-counts', status_code=201)
-def create_count(data: CountIn, db: DB):
+def record_count(db, data: CountIn):
     aware(data.counted_at); item = item_locked(db, data.item_id); valid_quantity(item, data.counted)
     expected = db.scalar(select(func.coalesce(func.sum(StockMovement.quantity), 0)).where(StockMovement.item_id == item.id, StockMovement.occurred_at <= data.counted_at))
     if expected != data.expected:
-        raise HTTPException(409, f'O saldo nessa data mudou. Saldo esperado atual: {expected} {item.unit}. Confira novamente.')
+        raise HTTPException(409, f'O saldo de {item.name} nessa data mudou. Saldo esperado atual: {expected} {item.unit}. Confira novamente.')
     difference = data.counted - expected
     result = change_stock(db, item.id, difference, 'adjustment', data.reason, data.counted_at, reference_type='inventory')
     row = InventoryCount(item_id=item.id, counted_at=data.counted_at, expected=expected, counted=data.counted, difference=difference, reason=data.reason, movements=[m.id for m in result])
     db.add(row); db.flush()
     for movement in result:
         movement.reference_id = row.id
-    audit(db, 'inventory', row.id, 'counted', data.model_dump()); db.commit(); db.refresh(row)
+    audit(db, 'inventory', row.id, 'counted', data.model_dump())
     return row
+
+
+@router.post('/inventory-counts', status_code=201)
+def create_count(data: CountIn, db: DB):
+    row = record_count(db, data); db.commit(); db.refresh(row)
+    return row
+
+
+class SheetLineIn(Input):
+    item_id: int
+    expected: Qty
+    counted: Qty = Field(ge=0)
+
+
+class SheetIn(Input):
+    counted_at: datetime
+    reason: str = Field(min_length=3, max_length=500)
+    lines: list[SheetLineIn] = Field(min_length=1, max_length=500)
+
+
+@router.get('/inventory-sheet')
+def inventory_sheet(db: DB, at: datetime | None = None, kind: Literal['product', 'ingredient', 'packaging'] | None = None):
+    """Folha de contagem: itens ativos com o saldo esperado no horário de corte."""
+    from .domain import now
+    instant = at or now()
+    if instant.tzinfo is None:
+        raise HTTPException(422, 'Informe o fuso horário.')
+    query = select(StockItem).where(StockItem.active.is_(True))
+    if kind:
+        query = query.where(StockItem.kind == kind)
+    items = db.scalars(query.order_by(StockItem.category, StockItem.name)).all()
+    balances = dict(db.execute(select(StockMovement.item_id, func.sum(StockMovement.quantity)).where(StockMovement.occurred_at <= instant).group_by(StockMovement.item_id)).all())
+    return {'at': instant, 'items': [{'id': i.id, 'sku': i.sku, 'name': i.name, 'category': i.category, 'kind': i.kind, 'unit': i.unit,
+                                      'expected': quantity(balances.get(i.id, 0)), 'minimum': i.minimum} for i in items]}
+
+
+@router.post('/inventory-counts/batch', status_code=201)
+def batch_count(data: SheetIn, db: DB):
+    """Inventário completo em uma única transação: se um item falhar, nada é gravado."""
+    if len({line.item_id for line in data.lines}) != len(data.lines):
+        raise HTTPException(422, 'Cada item deve aparecer uma única vez na folha de contagem.')
+    results = [record_count(db, CountIn(item_id=line.item_id, counted_at=data.counted_at, counted=line.counted, expected=line.expected, reason=data.reason))
+               for line in sorted(data.lines, key=lambda value: value.item_id)]
+    db.commit()
+    return {'counted': len(results), 'with_difference': sum(1 for r in results if r.difference), 'ids': [r.id for r in results]}

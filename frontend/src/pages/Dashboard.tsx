@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, ArrowUpRight, Clock3, Package, Target, Wallet, Users } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, CheckCircle2, CircleDashed, ClipboardCheck, Clock3, Package, Target, TriangleAlert, Wallet, Users } from 'lucide-react';
 import { useRemote, ModuleHeading, ErrorNote, money, localNow, dateTime, count } from '../components/ui';
 import type { MonthlyReport } from './ReportsPage';
 import type { Responsibility } from './TeamPage';
 import type { Item } from './InventoryPage';
-type TargetPage = 'reports' | 'inventory' | 'cash' | 'team' | 'finance';
+type TargetPage = 'reports' | 'inventory' | 'cash' | 'team' | 'finance' | 'school' | 'purchases' | 'weekly';
 type Data = { report: MonthlyReport; responsibility: Responsibility; low_stock: Item[]; expired_lots: number; pending_expenses_cents: number; registered_items: number; open_cash_sessions: { id: number; opened_at: string; expected_cents: number }[] };
+type Routine = { id: string; page: TargetPage; title: string; status: 'ok' | 'attention' | 'pending'; detail: string };
+const routineLabels = { ok: 'Em dia', attention: 'Atenção', pending: 'Pendente' };
 export default function Dashboard({ navigate }: { navigate: (page: TargetPage) => void }) {
-  const [month, setMonth] = useState(localNow().slice(0, 7)); const remote = useRemote<Data>(`/dashboard?month=${month}`);
+  const [month, setMonth] = useState(localNow().slice(0, 7)); const remote = useRemote<Data>(`/dashboard?month=${month}`); const routine = useRemote<Routine[]>('/routine');
   useEffect(() => { const timer = setInterval(() => void remote.refresh(), 30000); return () => clearInterval(timer); }, [remote.refresh]);
   const data = remote.data; const r = data?.report; const who = data?.responsibility;
   const alerts: { title: string; text: string; page: TargetPage }[] = [];
@@ -18,7 +20,11 @@ export default function Dashboard({ navigate }: { navigate: (page: TargetPage) =
   if (data?.open_cash_sessions.some(c => c.opened_at.slice(0, 10) < localNow().slice(0, 10))) alerts.push({ title: 'Há caixa anterior sem fechamento', text: 'Solicite a contagem ao responsável e confira o turno.', page: 'cash' });
   if (r?.completeness_notes.length) alerts.push({ title: 'Resultado com informações a conferir', text: r.completeness_notes.join(' '), page: 'reports' });
   const maximum = Math.max(1, ...(r?.daily.map(d => d.sales_cents) || []));
-  return <><ModuleHeading title="Visão geral da cantina" description="Vendas, dinheiro, estoque e pendências a partir dos registros da operação." onRefresh={() => void remote.refresh()} /><ErrorNote errors={[remote.error]} /><div className="toolbar"><label>Mês de referência<input className="toolbar-input" type="month" value={month} onChange={e => { if (e.target.value) setMonth(e.target.value); }} /></label><span className="muted">{r ? `Atualizado ${dateTime(r.generated_at)}` : 'Carregando dados…'}</span></div>
+  const done = routine.data?.filter(x => x.status === 'ok').length ?? 0;
+  return <><ModuleHeading title="Visão geral da cantina" description="Vendas, dinheiro, estoque e pendências a partir dos registros da operação." onRefresh={() => { void remote.refresh(); void routine.refresh(); }} /><ErrorNote errors={[remote.error, routine.error]} />
+    <section className="panel routine-panel"><div className="panel-heading"><div><span className="eyebrow">ACOMPANHAMENTOS EXIGIDOS</span><h2>Rotina da gestão</h2></div><span className="routine-score"><ClipboardCheck size={18} />{routine.data ? `${done} de ${routine.data.length} em dia` : 'Verificando…'}</span></div>
+      <div className="routine-list">{(routine.data || []).map(item => { const Icon = item.status === 'ok' ? CheckCircle2 : item.status === 'attention' ? TriangleAlert : CircleDashed; return <button key={item.id} className={`routine-item ${item.status}`} onClick={() => navigate(item.page)}><Icon size={19} /><div><strong>{item.title}</strong><p>{item.detail}</p></div><span className={`routine-badge ${item.status}`}>{routineLabels[item.status]}</span><ArrowUpRight size={15} /></button>; })}</div></section>
+    <div className="toolbar"><label>Mês de referência<input className="toolbar-input" type="month" value={month} onChange={e => { if (e.target.value) setMonth(e.target.value); }} /></label><span className="muted">{r ? `Atualizado ${dateTime(r.generated_at)}` : 'Carregando dados…'}</span></div>
     <div className="metrics-grid operational-metrics">{[
       { label: 'Vendas registradas no mês', value: r ? money(r.sales_cents) : '—', note: 'Após descontos e cancelamentos', icon: Wallet },
       { label: 'Despesas lançadas no mês', value: r ? money(r.all_expenses_cents) : '—', note: 'Inclui aquisição de mercadorias', icon: Package },

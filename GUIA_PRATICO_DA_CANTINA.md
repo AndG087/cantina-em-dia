@@ -95,9 +95,9 @@ Este é um orçamento inicial de tempo, ajustável ao volume real. Nos primeiros
 
 | Tempo sugerido | O que fazer | Onde consultar |
 |---|---|---|
-| 15 minutos | Conferir recebimento das informações e listar pendências | WhatsApp e Visão geral |
-| 35 minutos | Lançar vendas e despesas, conferir fechamento anterior e créditos digitais | Vendas, Caixa e Financeiro |
-| 30 minutos | Registrar compras, produção, perdas e conferências de estoque | Compras, Produção e Estoque |
+| 15 minutos | Conferir recebimento das informações, a rotina da gestão e as pendências | WhatsApp e Visão geral |
+| 35 minutos | Lançar vendas e despesas, registrar a conferência do caixa do dia anterior e conferir créditos digitais | Vendas, Caixa e Financeiro |
+| 30 minutos | Registrar compras com o valor da nota, produção, perdas e conferências de estoque | Compras, Produção e Estoque |
 | 20 minutos | Revisar faltas, validade, compras necessárias e disponibilidade da equipe | Estoque e Equipe |
 | 15 minutos | Cobrar as informações faltantes em uma mensagem organizada | Lista de pendências |
 | 10 minutos | Resumir o dia e conferir a cópia de segurança | Relatórios e Backup |
@@ -120,6 +120,8 @@ Pix e cartão não entram nessa soma física. Se o sistema já registrou uma des
 Na passagem de responsabilidade, registre quem entrega, quem recebe, horário, valor contado e motivo de qualquer diferença. O fechamento também exige contagem. A indicação da escala não prova presença nem transfere o dinheiro automaticamente.
 
 Ao encontrar uma diferença, confira primeiro troco, registros atrasados, pagamentos mistos, devoluções, despesas, retiradas e horário de corte. Guarde a explicação e os documentos. Uma diferença isolada não comprova furto.
+
+Peça que a retirada para o cofre ou banco seja registrada **antes** da contagem final. Assim, o valor contado no fechamento é o troco que fica na gaveta e deve ser igual ao troco da abertura seguinte. Na tela **Caixa**, a conferência diária aponta quando isso não acontece, quando um dia útil ficou sem abertura e quando um caixa não foi fechado. Registre a conferência de cada dia, com ressalvas quando houver pontos de atenção.
 
 ## 8 Como conferir Pix e cartão
 
@@ -195,6 +197,14 @@ Use a [cartilha da Anvisa sobre boas práticas em serviços de alimentação](ht
 
 ### Conferência semanal
 
+A **Visão geral** mostra as cinco rotinas exigidas pela gestão. Use a lista abaixo para deixá-las em dia.
+
+- [ ] Averiguar com a escola os cursos em andamento, feriados, recessos e paralisações; registrar o que mudou e a averiguação em **Calendário da escola**.
+- [ ] Conferir o caixa de todos os dias úteis da semana em **Caixa**.
+- [ ] Conferir as notas da semana em **Compras**: valor da nota, quantidades e custos. Explicar ou corrigir as divergências.
+- [ ] Fazer a contagem com a **folha de inventário** em **Estoque**, ao menos dos itens prioritários.
+- [ ] Revisar os **gastos fora do padrão** em **Financeiro** e registrar a explicação de cada alerta.
+- [ ] Preparar o **Relatório semanal**, enviar aos seus pais e guardar a versão entregue.
 - [ ] Contar os itens prioritários e comparar com o sistema.
 - [ ] Conferir validade, perdas, consumo da equipe e produtos que faltaram.
 - [ ] Preparar a lista de compras com estoque e demanda esperada.
@@ -228,6 +238,8 @@ Exemplo apenas para entender a conta: se a base acordada for R$ 32.000 e a meta 
 **Semana 4:** prepare o primeiro fechamento acompanhado pelos seus pais, revise as pendências e defina a rotina do mês seguinte. Se o mês estiver incompleto, apresente o período observado e suas limitações.
 
 ## 17 Modelo de resumo para seus pais
+
+A tela **Relatório semanal** monta esse resumo a partir dos registros e oferece o botão **Copiar texto para WhatsApp**. Revise o texto, complemente as decisões que você precisa deles e guarde a versão entregue. O modelo abaixo continua útil para períodos diferentes de uma semana.
 
 > PERÍODO: ___ a ___; dias de funcionamento conferidos: ___ de ___; vendas registradas: R$ ___; recebimentos efetivos: R$ ___; despesas pagas: R$ ___; diferenças de caixa: R$ ___; perdas e consumo registrados: ___; reembolsos pendentes: R$ ___; itens que faltaram: ___; dados ainda não recebidos: ___; ações propostas e custo estimado: ___; decisões que preciso de vocês: ___
 

@@ -7,9 +7,9 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from .database import get_session
-from .domain import audit, aware, get_or_404, lock, rows
+from .domain import audit, aware, brl, get_or_404, lock, rows
 from .inventory import Qty, change_stock, valid_quantity, ReasonIn
-from .models import Supplier, Purchase, PurchaseLine, PurchaseReceipt, StockItem, Expense, ExpensePayment
+from .models import Supplier, Purchase, PurchaseLine, PurchaseReceipt, StockItem, StockLot, StockMovement, Expense, ExpensePayment
 from .team import Input
 
 router = APIRouter(prefix='/api', tags=['Compras e despesas'])
@@ -53,6 +53,8 @@ class ReceiptIn(Input):
     payer_name: str = Field(default='', max_length=120)
     payment_method: Literal['pix', 'bank'] = 'pix'
     lines: list[ReceiptLineIn] = Field(min_length=1, max_length=100)
+    invoice_total_cents: Money | None = None
+    invoice_note: str = Field(default='', max_length=500)
 
 
 class ExpenseIn(Input):
@@ -160,7 +162,10 @@ def receive_purchase(key: int, data: ReceiptIn, db: DB):
     total = sum(int((line.quantity * line.unit_cost_cents).quantize(Decimal(1), rounding=ROUND_HALF_UP)) for line in data.lines)
     if total > 2_000_000_000:
         raise HTTPException(422, 'Valor total acima do limite permitido.')
-    receipt = PurchaseReceipt(purchase_id=key, supplier_id=purchase.supplier_id, document=data.document, occurred_at=data.occurred_at, total_cents=total)
+    if data.invoice_total_cents is not None and data.invoice_total_cents != total and len(data.invoice_note) < 3:
+        raise HTTPException(422, f'A nota informa {brl(data.invoice_total_cents)} e os itens recebidos somam {brl(total)}. Corrija quantidades e custos ou explique a diferença (desconto, frete, item faltante).')
+    receipt = PurchaseReceipt(purchase_id=key, supplier_id=purchase.supplier_id, document=data.document, occurred_at=data.occurred_at, total_cents=total,
+                              invoice_total_cents=data.invoice_total_cents, invoice_note=data.invoice_note)
     db.add(receipt); db.flush()
     for line in sorted(data.lines, key=lambda value: value.item_id):
         ordered = db.scalar(select(PurchaseLine).where(PurchaseLine.purchase_id == key, PurchaseLine.item_id == line.item_id))
@@ -178,6 +183,60 @@ def receive_purchase(key: int, data: ReceiptIn, db: DB):
     purchase.status = 'received' if all(line.received == line.ordered for line in all_lines) else 'partial'
     audit(db, 'receipt', receipt.id, 'received', data.model_dump()); db.commit()
     return {'receipt_id': receipt.id, 'expense_id': expense.id, 'total_cents': total, 'status': purchase.status}
+
+
+COST_TOLERANCE_PCT = 10
+
+
+def receipt_checks(db, start=None, end=None, limit=500):
+    """Confere cada recebimento: nota x itens, custo real x estimado no pedido e saldo a receber."""
+    query = select(PurchaseReceipt)
+    if start is not None:
+        query = query.where(PurchaseReceipt.occurred_at >= start)
+    if end is not None:
+        query = query.where(PurchaseReceipt.occurred_at < end)
+    receipts = db.scalars(query.order_by(PurchaseReceipt.occurred_at.desc(), PurchaseReceipt.id.desc()).limit(limit)).all()
+    names = {s.id: s.name for s in db.scalars(select(Supplier))}
+    result = []
+    for receipt in receipts:
+        moved = db.execute(select(StockMovement, StockLot, StockItem).join(StockLot, StockMovement.lot_id == StockLot.id).join(StockItem, StockMovement.item_id == StockItem.id)
+                           .where(StockMovement.reference_type == 'purchase_receipt', StockMovement.reference_id == receipt.id, StockMovement.reversal_of.is_(None)).order_by(StockItem.name)).all()
+        ordered = {line.item_id: line for line in db.scalars(select(PurchaseLine).where(PurchaseLine.purchase_id == receipt.purchase_id))}
+        lines = []; issues = []
+        for movement, lot, item in moved:
+            unit_cost = int(Decimal(lot.unit_cost_cents).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+            order = ordered.get(item.id)
+            estimated = order.estimated_cost_cents if order else None
+            variation = round((unit_cost - estimated) * 100 / estimated, 1) if estimated else None
+            if variation is not None and variation >= COST_TOLERANCE_PCT:
+                issues.append(f'{item.name}: custo {brl(unit_cost)} por {item.unit}, {variation:.0f}% acima do estimado no pedido ({brl(estimated)}).')
+            lines.append({'item_id': item.id, 'name': item.name, 'unit': item.unit, 'quantity': movement.quantity, 'unit_cost_cents': unit_cost,
+                          'estimated_cost_cents': estimated, 'cost_variation_pct': variation, 'ordered': order.ordered if order else None, 'received_total': order.received if order else None})
+        difference = None if receipt.invoice_total_cents is None else receipt.invoice_total_cents - receipt.total_cents
+        if difference:
+            issues.insert(0, f'Nota {brl(receipt.invoice_total_cents)} x itens {brl(receipt.total_cents)} (diferença {brl(difference)}). Justificativa: {receipt.invoice_note}')
+        status = 'divergent' if issues else 'missing_invoice' if receipt.invoice_total_cents is None else 'ok'
+        result.append({'id': receipt.id, 'purchase_id': receipt.purchase_id, 'supplier': names.get(receipt.supplier_id, f'#{receipt.supplier_id}'), 'document': receipt.document,
+                       'occurred_at': receipt.occurred_at, 'items_total_cents': receipt.total_cents, 'invoice_total_cents': receipt.invoice_total_cents,
+                       'invoice_difference_cents': difference, 'invoice_note': receipt.invoice_note, 'lines': lines, 'issues': issues, 'status': status})
+    return result
+
+
+def pending_orders(db):
+    """Pedidos aguardando aprovação ou com itens ainda não recebidos."""
+    names = {s.id: s.name for s in db.scalars(select(Supplier))}
+    items = {i.id: i for i in db.scalars(select(StockItem))}
+    result = []
+    for purchase in db.scalars(select(Purchase).where(Purchase.status.in_(['requested', 'approved', 'partial'])).order_by(Purchase.created_at)):
+        missing = [{'item_id': line.item_id, 'name': items[line.item_id].name, 'unit': items[line.item_id].unit, 'missing': line.ordered - line.received}
+                   for line in db.scalars(select(PurchaseLine).where(PurchaseLine.purchase_id == purchase.id).order_by(PurchaseLine.id)) if line.received < line.ordered]
+        result.append({'id': purchase.id, 'supplier': names.get(purchase.supplier_id), 'status': purchase.status, 'created_at': purchase.created_at, 'requested_by': purchase.requested_by, 'missing': missing})
+    return result
+
+
+@router.get('/purchase-receipts')
+def purchase_receipts(db: DB):
+    return {'receipts': receipt_checks(db), 'pending_orders': pending_orders(db), 'cost_tolerance_pct': COST_TOLERANCE_PCT}
 
 
 @router.get('/expenses')

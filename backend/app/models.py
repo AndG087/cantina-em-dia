@@ -206,6 +206,9 @@ class PurchaseReceipt(Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     total_cents: Mapped[int]
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Valor impresso na nota, conferido contra a soma dos itens recebidos.
+    invoice_total_cents: Mapped[int | None]
+    invoice_note: Mapped[str] = mapped_column(String(500), default='', server_default='')
 
 
 class Expense(Base):
@@ -457,6 +460,77 @@ class Attachment(Base):
     note: Mapped[str] = mapped_column(String(300))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SchoolCourse(Base):
+    __tablename__ = 'school_courses'
+    __table_args__ = (CheckConstraint('ends_on >= starts_on AND (students IS NULL OR students >= 0)', name='valid_school_course'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(150))
+    shift: Mapped[str] = mapped_column(String(20))
+    starts_on: Mapped[date] = mapped_column(Date)
+    ends_on: Mapped[date] = mapped_column(Date)
+    weekdays: Mapped[list] = mapped_column(JSON)
+    students: Mapped[int | None]
+    source: Mapped[str] = mapped_column(String(300))
+    note: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancel_reason: Mapped[str] = mapped_column(String(500), default='', server_default='')
+
+
+class SchoolEvent(Base):
+    __tablename__ = 'school_events'
+    __table_args__ = (CheckConstraint('ends_on >= starts_on', name='valid_school_event'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(30))
+    title: Mapped[str] = mapped_column(String(150))
+    starts_on: Mapped[date] = mapped_column(Date, index=True)
+    ends_on: Mapped[date] = mapped_column(Date, index=True)
+    effect: Mapped[str] = mapped_column(String(20))
+    source: Mapped[str] = mapped_column(String(300))
+    note: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancel_reason: Mapped[str] = mapped_column(String(500), default='', server_default='')
+
+
+class SchoolCalendarCheck(Base):
+    __tablename__ = 'school_calendar_checks'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    source: Mapped[str] = mapped_column(String(300))
+    note: Mapped[str] = mapped_column(String(1000))
+
+
+class CashReview(Base):
+    __tablename__ = 'cash_reviews'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    day: Mapped[date] = mapped_column(Date, index=True)
+    status: Mapped[str] = mapped_column(String(20))
+    note: Mapped[str] = mapped_column(String(1000))
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    snapshot: Mapped[dict] = mapped_column(JSON)
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ExpenseAlertNote(Base):
+    __tablename__ = 'expense_alert_notes'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    alert_key: Mapped[str] = mapped_column(String(120), unique=True)
+    note: Mapped[str] = mapped_column(String(1000))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class WeeklyReport(Base):
+    __tablename__ = 'weekly_reports'
+    __table_args__ = (UniqueConstraint('week_start', 'version', name='unique_weekly_report_version'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    week_start: Mapped[date] = mapped_column(Date, index=True)
+    version: Mapped[int]
+    note: Mapped[str] = mapped_column(String(1000))
+    snapshot: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class BackupRecord(Base):

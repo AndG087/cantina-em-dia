@@ -26,6 +26,10 @@ from .attachments import router as attachments_router
 from .backups import router as backups_router
 from .pricing import router as pricing_router
 from .costs import router as costs_router
+from .school import router as school_router
+from .cash_review import router as cash_review_router
+from .expense_alerts import router as expense_alerts_router
+from .weekly import router as weekly_router
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 
@@ -52,6 +56,10 @@ app.include_router(attachments_router)
 app.include_router(backups_router)
 app.include_router(pricing_router)
 app.include_router(costs_router)
+app.include_router(school_router)
+app.include_router(cash_review_router)
+app.include_router(expense_alerts_router)
+app.include_router(weekly_router)
 
 
 @app.middleware('http')

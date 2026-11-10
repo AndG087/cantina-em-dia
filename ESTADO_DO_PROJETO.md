@@ -1,6 +1,6 @@
 # Estado do projeto
 
-Atualizado em 9 de novembro de 2026. Repositório: `C:\dev\cantina-em-dia`. Versão local 0.4.0. Commits feitos localmente; não houve envio ao GitHub.
+Atualizado em 10 de novembro de 2026. Repositório: `C:\dev\cantina-em-dia`. Versão local 0.5.0. Commits feitos localmente; não houve envio ao GitHub.
 
 ## Continuidade autorizada
 
@@ -20,6 +20,7 @@ O usuário pediu “continue”. A pausa anterior foi encerrada e o desenvolvime
 | 8a | 3e69f6e | CSV com mapeamento, prévia, validação e rastreabilidade |
 | 8b | e1aa190 | Anexos com integridade e arquivamento reversível |
 | 8c | 703f43d | Backup consistente, importação e restauração em banco isolado |
+| 9 | (este commit) | Rotina de acompanhamento: calendário da escola, notas, inventário em folha, caixa diário, gastos fora do padrão e relatório semanal |
 
 ## Importação concluída
 
@@ -107,3 +108,31 @@ Ambos estão na área Documentos, com leitura, download Markdown e botão de imp
 Verificação final: 58 testes passaram, build TypeScript/Vite aprovado, alembic check sem diferenças. PostgreSQL operacional atualizado para 0013_lot_lookup_index. Novo backup dessa revisão criado e restauração verificada em banco temporário, removido ao concluir. A conferência usou portas temporárias 8011/5184 e não encerrou a instância preexistente em 8000/5173.
 
 Pendências para implantação: dados reais da equipe/cardápio/custos/estoque, tabela oficial, regras de consumo, acordo da meta, arquivo real da Stone, destino externo do backup e conferência acompanhada de um ciclo operacional. Retificação financeira de compras liquidadas/pagamentos continua sem fluxo completo; a retificação entregue é de custo gerencial por lote. Acesso remoto e autenticação seguem fora do escopo confirmado pelo usuário. Nada foi enviado ao GitHub.
+
+## Rotina de acompanhamento (etapa 9)
+
+Em 10 de novembro de 2026 o usuário trouxe as atividades que precisa entregar para a cantina do Senai: calendário da escola (cursos em andamento, feriados e paralisações), compras (comprar, conferir notas e quantidades, inventário), caixa (conferir diariamente fechamentos e aberturas), gestão (relatório semanal) e despesas (gastos fora do padrão). O que já existia foi mantido; foram acrescentados:
+
+- **Calendário da escola** (`school.py`, tela Calendário da escola): cursos/turmas com turno, dias, período e alunos; feriados, recessos, férias, paralisações e eventos com efeito previsto; cancelamento com motivo; registro de averiguação (vence em 7 dias). Eventos com efeito "cantina fechada" passam a fechar o dia para o responsável previsto e para a conferência do caixa.
+- **Conferência de notas** (`purchases.py`): valor total da nota no recebimento, com explicação obrigatória quando difere da soma dos itens; consulta `/api/purchase-receipts` com nota × itens, custo × estimado (10%) e pedidos com itens a receber. A despesa continua sendo a soma dos itens.
+- **Folha de inventário** (`inventory.py`, Estoque): saldo esperado por item no horário de corte e gravação de vários itens em uma única transação, reaproveitando a regra da contagem individual.
+- **Conferência diária do caixa** (`cash_review.py`, Caixa): por dia, aberturas, fechamentos, passagens, vendas em dinheiro, retiradas e apontamentos (dia útil sem abertura, troco diferente do fechamento anterior, diferenças, caixa sem fechamento, caixa em dia fechado). Conferência registrada com ou sem ressalvas; fica "desatualizada" se os registros do dia mudarem (impressão digital dos dados).
+- **Gastos fora do padrão** (`expense_alerts.py`, Financeiro): mediana da categoria (+50%, mínimo 3 lançamentos em 180 dias), duplicidade (mesmo favorecido e valor em 7 dias), categoria acima da média de períodos anteriores (+30% e R$ 50; somente despesas manuais), custo de compra +15% sobre as últimas compras do item e categoria nova (informativo). Explicação registrada por alerta.
+- **Relatório semanal** (`weekly.py`, tela Relatório semanal): semana de segunda a domingo comparada à anterior, com caixa, compras, estoque, gastos e calendário; Markdown imprimível, texto para WhatsApp, download `.md` e versões guardadas com retrato dos números. O cálculo mensal foi separado em `period_report` sem mudar o resultado do mês.
+- **Rotina da gestão** na Visão geral (`/api/routine`): situação das cinco atividades com atalho para cada tela.
+- Migração `0014_rotina_acompanhamento` (novas tabelas e dois campos em `purchase_receipts`); versão 0.5.0.
+
+### Verificações desta etapa
+
+- 65 testes passaram em PostgreSQL isolado (7 novos em `test_routine.py`).
+- Build TypeScript/Vite aprovado.
+- `alembic check` sem diferenças; downgrade e upgrade da 0014 testados no banco de testes.
+- Conferência no navegador em uma instância separada (portas 8011/5184) com banco temporário `cantina_preview_demo` e dados fictícios; o banco foi apagado ao final. Telas conferidas: Visão geral, Calendário da escola, Caixa (incluindo o bloqueio de "sem ressalvas" com apontamentos), Compras, Financeiro, Relatório semanal (inclusive a versão impressa) e folha de inventário. Sem rolagem horizontal em 390 px.
+- O banco operacional **não** foi alterado nesta etapa: a migração 0014 será aplicada pelo `npm.cmd start` na próxima inicialização. Faça um backup antes, como de costume.
+
+### Pendências desta etapa
+
+- Cadastrar o calendário real (cursos, turnos, alunos, feriados e paralisações) a partir da averiguação com a escola.
+- Os critérios de "fora do padrão" e os prazos (7 dias para calendário e inventário) são fixos; ajustar depois de algumas semanas com dados reais, se gerarem alertas demais ou de menos.
+- Com pouco histórico, as comparações de despesas ficam limitadas; a tela informa as categorias sem histórico suficiente.
+- Diferença entre nota e itens não altera a despesa; frete, desconto e ajustes financeiros de nota continuam sem fluxo próprio.

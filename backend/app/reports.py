@@ -40,6 +40,17 @@ def rounded(value):
 
 def monthly_report(db, month):
     start, end = period(month)
+    report = period_report(db, start, end)
+    goal = db.scalar(select(Goal).where(Goal.month == month).order_by(Goal.version.desc()).limit(1))
+    bases = {'gross_sales': report['gross_sales_cents'], 'net_sales': report['sales_cents'], 'receipts': report['receipts_net_cents'], 'operating_result': report['operating_result_cents']}
+    basis = bases.get(goal.basis) if goal else None
+    variable = max(0, basis - goal.target_cents) if goal and basis is not None else None
+    return {'month': month, **report,
+            'goal': {'id': goal.id, 'version': goal.version, 'basis': goal.basis, 'target_cents': goal.target_cents, 'agreement': goal.agreement, 'basis_cents': basis, 'variable_cents': variable} if goal else None}
+
+
+def period_report(db, start, end):
+    """Indicadores de qualquer período [start, end), usados no mês e na semana."""
     costs = CostBook(db)
     sales = db.scalars(select(Sale).where(Sale.occurred_at >= start, Sale.occurred_at < end)).all()
     expenses = db.scalars(select(Expense).where(Expense.occurred_at >= start, Expense.occurred_at < end, Expense.voided.is_(False))).all()
@@ -91,13 +102,9 @@ def monthly_report(db, month):
     for expense in expenses:
         categories['Mercadorias (aquisição)' if expense.receipt_id else expense.category] += expense.amount_cents
     products = db.execute(select(StockItem.name, StockItem.unit, func.sum(SaleLine.quantity), func.sum(SaleLine.quantity * SaleLine.unit_price_cents)).join(SaleLine, SaleLine.item_id == StockItem.id).join(Sale, SaleLine.sale_id == Sale.id).where(Sale.occurred_at >= start, Sale.occurred_at < end, Sale.voided.is_(False)).group_by(StockItem.id).order_by(func.sum(SaleLine.quantity * SaleLine.unit_price_cents).desc()).limit(10)).all()
-    goal = db.scalar(select(Goal).where(Goal.month == month).order_by(Goal.version.desc()).limit(1))
-    bases = {'gross_sales': gross_sales, 'net_sales': net_sales, 'receipts': receipts_net, 'operating_result': recorded_result if complete else None}
-    basis = bases.get(goal.basis) if goal else None
-    variable = max(0, basis - goal.target_cents) if goal and basis is not None else None
     cash_difference = db.scalar(select(func.coalesce(func.sum(CashSession.difference_cents), 0)).where(CashSession.closed_at >= start, CashSession.closed_at < end))
     handover_difference = db.scalar(select(func.coalesce(func.sum(CashHandover.difference_cents), 0)).where(CashHandover.occurred_at >= start, CashHandover.occurred_at < end))
-    return {'month': month, 'cost_revision_id': costs.revisions[-1].id if costs.revisions else 0, 'generated_at': now(), 'sales_count': len(valid), 'gross_sales_cents': gross_sales, 'sales_cents': net_sales,
+    return {'cost_revision_id': costs.revisions[-1].id if costs.revisions else 0, 'generated_at': now(), 'sales_count': len(valid), 'gross_sales_cents': gross_sales, 'sales_cents': net_sales,
             'discount_cents': sum(s.discount_cents for s in sales), 'cancelled_sales_cents': sum(s.total_cents for s in sales if s.voided),
             'cogs_cents': cogs, 'losses_and_staff_cents': losses, 'operating_expenses_cents': operating_expenses, 'manager_expenses_cents': manager_expenses,
             'purchase_expenses_cents': sum(e.amount_cents for e in expenses if e.receipt_id), 'all_expenses_cents': sum(e.amount_cents for e in expenses),
@@ -107,8 +114,7 @@ def monthly_report(db, month):
             'closing_stock_value_cents': closing_stock, 'cash_difference_cents': cash_difference + handover_difference, 'daily': series,
             'expenses_by_category': [{'category': key, 'amount_cents': value} for key, value in categories.items()],
             'top_products': [{'name': name, 'unit': unit, 'quantity': amount, 'gross_cents': rounded(value)} for name, unit, amount, value in products],
-            'completeness_notes': completeness_notes, 'result_complete': complete,
-            'goal': {'id': goal.id, 'version': goal.version, 'basis': goal.basis, 'target_cents': goal.target_cents, 'agreement': goal.agreement, 'basis_cents': basis, 'variable_cents': variable} if goal else None}
+            'completeness_notes': completeness_notes, 'result_complete': complete}
 
 
 @router.get('/reports/monthly')

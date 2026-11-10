@@ -4,7 +4,7 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT = Path(__file__).resolve().parents[2]
-APP_VERSION = '0.4.0'
+APP_VERSION = '0.5.0'
 
 
 class Settings(BaseSettings):

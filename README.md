@@ -2,9 +2,14 @@
 
 Sistema local de gestão da cantina do Senai em Paulista, desenvolvido por etapas com Python, React e PostgreSQL.
 
-## O que funciona nesta versão (0.4.0)
+## O que funciona nesta versão (0.5.0)
 
-- Painel com vendas, despesas, responsável pelo caixa, estoque e pendências registrados.
+- Painel com vendas, despesas, responsável pelo caixa, estoque e pendências registrados, e a situação das cinco rotinas de acompanhamento exigidas pela gestão.
+- Calendário da escola: cursos e turmas em andamento, feriados, recessos e paralisações com efeito previsto na cantina, e registro de cada averiguação.
+- Conferência diária de aberturas e fechamentos do caixa, com apontamentos automáticos e registro da conferência.
+- Conferência das notas recebidas (valor da nota × itens, custo × estimado, pedido × recebido) e folha de inventário com vários itens.
+- Identificação de gastos fora do padrão, com explicação registrada para cada alerta.
+- Relatório semanal imprimível, com texto pronto para WhatsApp, download em Markdown e histórico das versões entregues.
 - Equipe, escalas semanais, substituições pontuais, feriados e confirmação de responsabilidade.
 - Estoque por produto/insumo, lotes, validade, entradas, perdas, estornos e inventários.
 - Fornecedores, pedidos, aprovação, recebimento parcial e reembolsos vinculados às compras.
@@ -19,7 +24,7 @@ Sistema local de gestão da cantina do Senai em Paulista, desenvolvido por etapa
 - Consulta dos documentos e configurações persistidas no PostgreSQL.
 - Inicialização local do banco, migrações, API e interface por um comando.
 
-As etapas 1 a 8 estão implementadas, incluindo CSV, anexos e backup/restauração. A validação com dados reais e as regras pendentes da família continuam necessárias. Nenhum dado de demonstração foi inserido no banco operacional.
+As etapas 1 a 8 estão implementadas, incluindo CSV, anexos e backup/restauração, além da rotina de acompanhamento (etapa 9). A validação com dados reais e as regras pendentes da família continuam necessárias. Nenhum dado de demonstração foi inserido no banco operacional.
 
 O desenvolvimento foi retomado a pedido do usuário. Consulte `ESTADO_DO_PROJETO.md` para acompanhar as entregas e verificações.
 
@@ -85,7 +90,7 @@ npm.cmd run build
 npm.cmd test
 ```
 
-O build executa TypeScript e Vite. Os 58 testes atuais usam PostgreSQL de verdade em um banco **separado**, `cantina_em_dia_test`. Cobrem persistência, validação, escala, estoque, compras, financeiro, produção, relatórios, importação, anexos e recuperação de backup. Os testes de recuperação criam e removem bancos isolados com nomes gerados. Em PostgreSQL externo, o usuário precisa poder criar esses bancos dedicados.
+O build executa TypeScript e Vite. Os 65 testes atuais usam PostgreSQL de verdade em um banco **separado**, `cantina_em_dia_test`. Cobrem persistência, validação, escala, estoque, compras, financeiro, produção, relatórios, importação, anexos, recuperação de backup e as rotinas de acompanhamento. Os testes de recuperação criam e removem bancos isolados com nomes gerados. Em PostgreSQL externo, o usuário precisa poder criar esses bancos dedicados.
 
 As portas padrão são 8000 (API) e 5173 (interface). Se outra instância estiver usando essas portas, encerre-a no terminal em que foi aberta ou configure `API_PORT` e `WEB_PORT` no `.env`. O inicializador não encerra processos alheios.
 
@@ -194,7 +199,21 @@ Em **Preços e custos**, registre a nova tabela com preço, data e hora de iníc
 
 Em **Preços e custos**, prepare a correção de um lote de entrada e confira as vendas e produções afetadas antes de confirmar. Os relatórios consultados usam o custo gerencial corrigido; os valores originais e apurações guardadas ficam preservados. Lotes já consumidos são elegíveis. Para produtos produzidos na cantina, corrija os ingredientes/embalagens de origem. Uma nova movimentação ou revisão exige refazer a prévia. A operação não altera notas, despesas, pagamentos, quantidade ou custo padrão do cadastro. Correções financeiras de compras liquidadas ainda não têm um fluxo completo de ajustes. Registre a pendência e confira separadamente.
 
-A estrutura atual é `0013_lot_lookup_index`. Como os backups exigem a mesma revisão, preserve o código correspondente às cópias antigas e crie/teste uma nova cópia depois de atualizar. O uso permanece exclusivamente local, conforme confirmado pelo usuário.
+A estrutura atual é `0014_rotina_acompanhamento`. Como os backups exigem a mesma revisão, preserve o código correspondente às cópias antigas e crie/teste uma nova cópia depois de atualizar. O uso permanece exclusivamente local, conforme confirmado pelo usuário.
+
+## Rotina de acompanhamento
+
+As cinco atividades exigidas pela gestão aparecem no topo da **Visão geral**, cada uma com situação (em dia, atenção ou pendente) e atalho:
+
+| Atividade | Onde fazer | O que o sistema confere |
+|---|---|---|
+| Calendário da escola | **Calendário da escola** | Cursos em andamento por turno, feriados, recessos e paralisações; averiguação com a escola a cada 7 dias. Eventos com efeito "cantina fechada" dispensam abertura de caixa e responsável. |
+| Compras, notas e inventário | **Compras e reembolsos** e **Estoque** | Valor impresso na nota × soma dos itens (diferença exige explicação), custo 10% ou mais acima do estimado no pedido, itens que faltam receber e contagem física nos últimos 7 dias. A folha de inventário grava vários itens de uma vez, ou nenhum. |
+| Caixa diário | **Caixa** | Dia útil sem abertura, troco de abertura diferente do contado no fechamento anterior, diferenças de contagem e caixa sem fechamento. A conferência registrada fica desatualizada se os registros mudarem depois. |
+| Relatório semanal | **Relatório semanal** | Semana de segunda a domingo comparada à anterior, com caixa, compras, estoque, gastos e calendário. Imprimir/PDF, copiar texto para WhatsApp, baixar .md e guardar a versão entregue. |
+| Gastos fora do padrão | **Financeiro** | Despesa 50% acima da mediana da categoria, possível duplicidade (mesmo favorecido e valor em até 7 dias), categoria 30% acima dos períodos anteriores e custo de compra 15% acima das compras recentes do item. |
+
+Os critérios são fixos nesta versão e aparecem na tela. Um alerta indica um ponto a conferir, não prova de erro ou desvio. Com pouco histórico, algumas comparações ainda não são feitas; a tela informa quais categorias estão nessa situação.
 
 ## Aprender a administrar e usar o sistema
 

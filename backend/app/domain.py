@@ -44,3 +44,10 @@ def rows(session, model, limit=500):
 
 def quantity(value) -> Decimal:
     return Decimal(str(value)).quantize(Decimal("0.001"))
+
+
+def brl(cents) -> str:
+    """Formata centavos como moeda brasileira, para mensagens e relatórios."""
+    value = Decimal(int(cents)) / 100
+    text = f"{abs(value):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"{'-' if value < 0 else ''}R$ {text}"

@@ -1,6 +1,6 @@
 # Mapa das funcionalidades do Cantina em Dia
 
-Versão 0.4.0 · 9 de novembro de 2026 · Uso pessoal no computador do gerente
+Versão 0.5.0 · 10 de novembro de 2026 · Uso pessoal no computador do gerente
 
 Este mapa explica o que cada área faz, quais informações você precisa reunir e como os registros se conectam. Use-o como índice do sistema. Os links dos módulos abaixo abrem a área correspondente quando você estiver lendo dentro da aplicação.
 
@@ -21,6 +21,20 @@ Algumas atividades acontecem em paralelo. O importante é registrar cada fato um
 | Houve troca de pessoa no caixa | Passagem com contagem em Caixa | Comparação entre esperado, contado e diferença |
 | Foi identificado custo antigo errado | Prévia em Preços e custos | Correção confirmada e nova conferência do relatório |
 | Recebeu uma foto de nota | Anexo recebido, se ainda não há lançamento | Vínculo à compra, despesa ou outro registro |
+
+## 1.1 Rotina exigida pela gestão
+
+Cinco atividades precisam ser acompanhadas. A **Visão geral** mostra a situação de cada uma e abre a tela correspondente.
+
+| Atividade | Tela | Frequência sugerida | Considerada em dia quando |
+|---|---|---|---|
+| Calendário da escola: cursos em andamento, feriados e paralisações | [Calendário da escola](#school) | Semanal | Houve averiguação registrada nos últimos 7 dias |
+| Compras: comprar, conferir notas e quantidades, fazer inventário | [Compras](#purchases) e [Estoque](#inventory) | A cada recebimento; contagem semanal | Notas dos últimos 7 dias sem divergência e contagem física nos últimos 7 dias |
+| Caixa: conferir fechamentos e aberturas | [Caixa](#cash) | Diária | Os últimos 7 dias estão conferidos ou não tinham movimento previsto |
+| Gestão: preparar relatório semanal | [Relatório semanal](#weekly) | Semanal | A semana anterior tem uma versão guardada |
+| Despesas: identificar gastos fora do padrão | [Financeiro](#finance) | Semanal | Nenhum alerta sem explicação nos últimos 30 dias |
+
+"Em dia" significa que os registros foram feitos e conferidos no sistema. Não substitui a conferência física, os documentos ou a conversa com a equipe.
 
 ## 2 Visão geral
 
@@ -48,6 +62,18 @@ Algumas atividades acontecem em paralelo. O importante é registrar cada fato um
 
 **Limite:** não é folha de pagamento, ponto eletrônico nem comprovação automática de presença. Como somente você acessará, deverá registrar as confirmações a partir das informações recebidas.
 
+## 3.1 Calendário da escola
+
+[Abrir Calendário da escola](#school)
+
+**Você pode:** cadastrar cursos e turmas com turno, dias de aula, início, término e número aproximado de alunos; registrar feriados, recessos, férias, paralisações e eventos com o efeito previsto na cantina (fechada, movimento reduzido, sem alteração ou movimento maior); cancelar registros com motivo; registrar cada averiguação com a escola.
+
+**Saídas:** calendário de dias úteis com situação, turmas por turno e alunos estimados; cursos que começam ou terminam nas próximas duas semanas; histórico de averiguações.
+
+**Regras centrais:** um evento com efeito **cantina fechada** funciona como dia fechado: o sistema não espera abertura de caixa nem responsável naquele dia. A averiguação é considerada vencida depois de 7 dias. Alterações de curso exigem motivo e ficam no histórico.
+
+**Limite:** o sistema não consulta o Senai. As informações dependem do que você averiguar com a secretaria ou coordenação. O número de alunos é uma estimativa para planejar compras e produção.
+
 ## 4 Estoque e inventário
 
 [Abrir Estoque](#inventory)
@@ -59,6 +85,8 @@ Algumas atividades acontecem em paralelo. O importante é registrar cada fato um
 **Saídas:** saldo por item, lotes com saldo, movimentos e divergências entre quantidade esperada e contada.
 
 **Regras centrais:** saldo negativo é bloqueado; itens em un exigem quantidades inteiras; o sistema verifica disponibilidade do lote na data da ocorrência e impede certas alterações depois de movimentar o item. Lotes vencidos são bloqueados para venda e preparo. Entradas e saídas passadas são verificadas contra o histórico disponível.
+
+**Folha de inventário:** escolha o grupo (todos, produtos, ingredientes ou embalagens) e o horário de corte, carregue a folha com o saldo esperado de cada item e preencha só o que foi contado. A diferença aparece enquanto você digita. Todos os itens preenchidos são gravados juntos; se o saldo de algum mudou desde que a folha foi carregada, nada é gravado e a tela pede para recarregar.
 
 **Como corrigir:** movimentos ligados a venda, compra ou produção devem ser tratados pela operação de origem, respeitando os bloqueios existentes. A contagem física corrige quantidade. A correção de custo é feita em Preços e custos; são tarefas diferentes.
 
@@ -75,6 +103,8 @@ Algumas atividades acontecem em paralelo. O importante é registrar cada fato um
 **Saídas:** pedido solicitado/aprovado/parcial/recebido, itens pendentes e despesa correspondente.
 
 **Regras centrais:** é necessário aprovar antes de receber; não se pode receber quantidade acima do pedido; documentos repetidos do mesmo fornecedor são rejeitados. O pagamento/reembolso liquida a despesa vinculada.
+
+**Conferência das notas:** no recebimento, informe o valor total impresso na nota. Se for diferente da soma dos itens, o sistema exige a explicação (desconto, frete, item faltante) ou a correção das quantidades e custos. A tabela de conferência mostra, para cada nota, os itens recebidos, o custo comparado ao estimado no pedido (alerta a partir de 10% acima), a diferença da nota e a situação: conferida, com divergência ou sem valor da nota. A lista de pedidos em aberto mostra o que ainda falta receber. A despesa continua sendo a soma dos itens; a diferença da nota fica registrada para conferência.
 
 **Exemplo:** Dona Gel recebeu uma compra de R$ 80 paga do bolso dela. Você informa o adiantamento; quando seu pai reembolsa, lança o pagamento na mesma despesa, com a referência do Pix.
 
@@ -124,6 +154,10 @@ Algumas atividades acontecem em paralelo. O importante é registrar cada fato um
 
 **Regras centrais:** apenas um caixa aberto; o dinheiro não pode ficar negativo nos registros; horários precisam respeitar abertura e passagens; a reabertura é restrita ao último caixa encerrado. Diferenças contadas em uma passagem não devem ser somadas duas vezes no fechamento.
 
+**Conferência diária:** a tabela dos últimos 14 dias mostra, por dia, aberturas, fechamentos, vendas em dinheiro, retiradas e pontos de atenção: dia de funcionamento sem abertura, troco de abertura diferente do valor contado no fechamento anterior, diferença na passagem ou no fechamento, caixa que ficou aberto e caixa aberto em dia previsto como fechado. Registre a conferência do dia como **sem ressalvas** ou **com ressalvas**, com o encaminhamento. Um dia com pontos de atenção não pode ser marcado sem ressalvas. Se os registros do dia mudarem depois, a conferência aparece como desatualizada.
+
+**Boa prática:** registre retiradas e depósitos **antes** da contagem de fechamento. Assim o valor contado é o troco que fica, e a abertura do dia seguinte deve ter o mesmo valor.
+
 **Limite:** o aplicativo não conta a gaveta. Uma retirada não é automaticamente despesa ou perda: registre o motivo e o destino para conferir com seu pai.
 
 ## 9 Financeiro
@@ -137,6 +171,16 @@ Algumas atividades acontecem em paralelo. O importante é registrar cada fato um
 **Saídas:** despesas não pagas, reembolsos pendentes, créditos digitais a conciliar e histórico dos valores registrados.
 
 **Regras centrais:** pagamento não pode exceder o saldo da despesa; referências repetidas são bloqueadas; taxa não pode superar o crédito bruto; recebimento não pode exceder o pagamento da venda. Despesa manual ainda não paga pode ser cancelada conforme as regras. Despesas de mercadorias preservam o vínculo com a compra.
+
+**Gastos fora do padrão:** o painel no topo do Financeiro compara os gastos do período escolhido (padrão: últimos 30 dias) com o histórico registrado:
+
+- despesa manual 50% ou mais acima da mediana da mesma categoria, com pelo menos 3 lançamentos nos últimos 180 dias;
+- possível duplicidade: mesmo favorecido e mesmo valor em até 7 dias;
+- despesas manuais de uma categoria 30% acima da média dos períodos anteriores de mesma duração, com pelo menos R$ 50 de diferença;
+- custo por unidade de uma compra 15% ou mais acima da média das últimas compras do mesmo item;
+- primeira despesa em uma categoria (informativo).
+
+Registre a explicação de cada alerta. Ela aparece no relatório semanal e tira o alerta da lista de pendências. Um alerta é um ponto de conferência, não prova de erro ou desvio.
 
 **Limite:** não há conexão bancária, cálculo tributário, folha de pagamento ou transferência real de dinheiro. Você registra fatos; o sistema não realiza pagamentos.
 
@@ -174,6 +218,18 @@ Para corrigir uma correção, registre outra revisão com motivo e documento. Us
 
 **Limite:** “sem pendências identificadas” não garante que todo fato foi informado. Impostos, contas e outras obrigações precisam estar corretamente registrados e conferidos. O sistema não define seu acordo com seus pais.
 
+## 11.1 Relatório semanal
+
+[Abrir Relatório semanal](#weekly)
+
+**Você pode:** escolher qualquer dia da semana desejada (padrão: a semana anterior), ler o relatório, imprimir ou salvar em PDF, copiar um resumo pronto para WhatsApp, baixar em Markdown e guardar a versão entregue com uma observação (para quem, como e quando).
+
+**Conteúdo:** vendas, recebimentos, despesas, perdas, diferenças de caixa, pedidos, ticket médio e resultado registrado comparados à semana anterior; formas de pagamento; tabela da conferência diária do caixa com os pontos de atenção; notas recebidas e divergências; pedidos em aberto; contagens físicas e diferenças; itens abaixo do mínimo e lotes vencendo; gastos fora do padrão com as explicações; calendário da escola da semana e das duas seguintes; lista de pendências.
+
+**Regras centrais:** uma semana vai de segunda a domingo. Uma semana em andamento é identificada como tal. Cada versão guardada preserva o retrato dos números naquele momento e recebe um número de versão; uma nova entrega da mesma semana cria a versão seguinte.
+
+**Limite:** o relatório resume os registros lançados. Dias sem informação aparecem como pendência, não como zero confiável.
+
 ## 12 Importação CSV
 
 [Abrir Importação CSV](#imports)
@@ -210,7 +266,7 @@ Para corrigir uma correção, registre outra revisão com motivo e documento. Us
 
 **Recuperação:** cria uma cópia em outro banco e recupera anexos ausentes. O banco em uso permanece disponível. A troca de configuração é manual e está descrita no README e na tela.
 
-**Limites:** o formato exige a mesma revisão de estrutura do aplicativo; preserve o código correspondente. A versão 0.4.0 usa `0013_lot_lookup_index`. Cópias anteriores exigem o código e a revisão correspondentes para recuperar, antes de atualizar novamente. O ZIP não inclui senha, programas ou outros ZIPs e não é criptografado. Os limites de tamanho estão no README. Não há cópia automática externa ou para nuvem.
+**Limites:** o formato exige a mesma revisão de estrutura do aplicativo; preserve o código correspondente. A versão 0.5.0 usa `0014_rotina_acompanhamento`. Cópias anteriores exigem o código e a revisão correspondentes para recuperar, antes de atualizar novamente. O ZIP não inclui senha, programas ou outros ZIPs e não é criptografado. Os limites de tamanho estão no README. Não há cópia automática externa ou para nuvem.
 
 ## 15 Documentos configurações e plano
 

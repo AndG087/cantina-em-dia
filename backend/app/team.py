@@ -170,7 +170,8 @@ def responsibility(db: DB, at: datetime | None = None):
     if instant.tzinfo is None:
         raise HTTPException(422, "Informe o fuso horário.")
     local = instant.astimezone(TZ)
-    closed = local.weekday() >= 5 or db.scalar(select(Closure.id).where(Closure.day == local.date())) is not None
+    from .school import closed_by_calendar
+    closed = local.weekday() >= 5 or db.scalar(select(Closure.id).where(Closure.day == local.date())) is not None or closed_by_calendar(db, local.date()) is not None
     expected = None
     source = None
     if not closed:
