@@ -1,166 +1,54 @@
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
-from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
-from starlette.middleware.trustedhost import TrustedHostMiddleware
-
-from .config import ROOT, settings, APP_VERSION
-from .database import engine, get_session
-from .models import AppSettings
-from .schemas import SettingsRead, SettingsUpdate
-from .team import router as team_router
-from .inventory import router as inventory_router
-from .purchases import router as purchases_router
-from .finance import router as finance_router
-from .production import router as production_router
-from .reports import router as reports_router
-from .imports import router as imports_router
-from .attachments import router as attachments_router
-from .backups import router as backups_router
-from .pricing import router as pricing_router
-from .costs import router as costs_router
-from .school import router as school_router
-from .cash_review import router as cash_review_router
-from .expense_alerts import router as expense_alerts_router
-from .weekly import router as weekly_router
 from alembic.config import Config
 from alembic.script import ScriptDirectory
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-app = FastAPI(title="Cantina em Dia", version=APP_VERSION)
-app.add_middleware(
-    TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"]
-)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[f"http://127.0.0.1:{settings.web_port}", f"http://localhost:{settings.web_port}"],
-    allow_methods=["GET", "PUT", "POST", "PATCH"],
-    allow_headers=["Content-Type"],
-)
+from . import cash, expenses, purchases, school, stock, weekly
+from .config import APP_VERSION, ROOT, settings
+from .database import engine
 
-SessionDep = Annotated[Session, Depends(get_session)]
-app.include_router(team_router)
-app.include_router(inventory_router)
-app.include_router(purchases_router)
-app.include_router(finance_router)
-app.include_router(production_router)
-app.include_router(reports_router)
-app.include_router(imports_router)
-app.include_router(attachments_router)
-app.include_router(backups_router)
-app.include_router(pricing_router)
-app.include_router(costs_router)
-app.include_router(school_router)
-app.include_router(cash_review_router)
-app.include_router(expense_alerts_router)
-app.include_router(weekly_router)
+app = FastAPI(title='Cantina em Dia', version=APP_VERSION)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', 'testserver'])
+app.add_middleware(CORSMiddleware, allow_origins=[f'http://127.0.0.1:{settings.web_port}', f'http://localhost:{settings.web_port}'],
+                   allow_methods=['GET', 'POST', 'PUT', 'DELETE'], allow_headers=['Content-Type'])
+for module in (school, purchases, stock, cash, expenses, weekly):
+    app.include_router(module.router)
 
 
 @app.middleware('http')
-async def protect_local_mutations(request, call_next):
+async def local_origin_only(request, call_next):
+    # Somente a própria interface local pode alterar os dados.
     origin = request.headers.get('origin')
     allowed = {f'http://{host}:{port}' for host in ['localhost', '127.0.0.1'] for port in [settings.web_port, settings.api_port]}
-    if request.method in {'POST', 'PUT', 'PATCH', 'DELETE'} and origin and origin not in allowed:
-        return JSONResponse(status_code=403, content={'detail': 'Origem não autorizada para alterar os dados locais.'})
+    if request.method != 'GET' and origin and origin not in allowed:
+        return JSONResponse(status_code=403, content={'detail': 'Origem não autorizada.'})
     return await call_next(request)
-DOCUMENTS = {
-    "guia": ("Guia prático da cantina", "GUIA_PRATICO_DA_CANTINA.md", "Rotina de gestão do zero, exemplos e plano dos primeiros trinta dias."),
-    "mapa": ("Mapa das funcionalidades", "MAPA_FUNCIONALIDADES.md", "O que cada módulo faz, como usar e quais são seus limites."),
-    "projeto": ("Projeto de gestão", "PROJETO_GESTAO_CANTINA.md", "Operação, responsabilidades e plano de implantação."),
-    "sistema": ("Especificação do sistema", "ESPECIFICACAO_SISTEMA_PYTHON.md", "Requisitos do aplicativo e regras dos controles."),
-    "perguntas": ("Perguntas para seu pai", "PERGUNTAS_PARA_O_PAI.md", "Informações que ainda precisamos levantar."),
-    "desenvolvimento": ("Prompt de desenvolvimento", "PROMPT_DESENVOLVIMENTO.md", "Orientações para continuar no VS Code por etapas."),
-}
 
 
 @app.exception_handler(SQLAlchemyError)
-async def database_error_handler(request, exc):
-    # Não expor a URL de conexão nem parâmetros potencialmente privados.
-    logging.getLogger("cantina").error("Operação de banco falhou: %s", type(exc).__name__)
-    return JSONResponse(
-        status_code=503,
-        content={"detail": "Banco indisponível ou desatualizado. Confira o PostgreSQL e execute as migrações."},
-    )
+async def database_error(request, exc):
+    # Não expor a URL de conexão nem parâmetros.
+    logging.getLogger('cantina').error('Operação de banco falhou: %s', type(exc).__name__)
+    return JSONResponse(status_code=503, content={'detail': 'Banco indisponível ou desatualizado. Confira o PostgreSQL e as migrações.'})
 
 
-@app.get("/api/health")
+@app.get('/api/health')
 def health():
-    """Verifica o processo da API, sem afirmar que o banco está disponível."""
-    return {"status": "ok", "service": "Cantina em Dia", "version": APP_VERSION}
+    return {'status': 'ok', 'version': APP_VERSION}
 
 
-@app.get("/api/health/database")
+@app.get('/api/health/database')
 def database_health():
-    # Verificar conexão, versão da migração e configuração inicial separadamente.
     with engine.connect() as connection:
-        database = connection.execute(text("SELECT current_database()")).scalar_one()
-        version = connection.execute(text("SHOW server_version")).scalar_one()
-        revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        configured = connection.execute(text("SELECT count(*) FROM app_settings WHERE id = 1")).scalar_one()
-    expected_revision = ScriptDirectory.from_config(Config(str(ROOT / "backend/alembic.ini"))).get_current_head()
-    if revision != expected_revision or configured != 1:
-        raise HTTPException(503, "Migração pendente. Execute alembic upgrade head.")
-    return {
-        "status": "ok", "database": database, "engine": "PostgreSQL",
-        "server_version": version, "migration": revision,
-        "checked_at": datetime.now(timezone.utc).isoformat(),
-    }
-
-
-def get_app_settings(session: Session) -> AppSettings:
-    value = session.get(AppSettings, 1)
-    if value is None:
-        raise HTTPException(503, "Configuração inicial ausente. Execute as migrações.")
-    return value
-
-
-@app.get("/api/settings", response_model=SettingsRead)
-def read_settings(session: SessionDep):
-    return get_app_settings(session)
-
-
-@app.put("/api/settings", response_model=SettingsRead)
-def update_settings(data: SettingsUpdate, session: SessionDep):
-    current = get_app_settings(session)
-    for key, value in data.model_dump().items():
-        setattr(current, key, value)
-    session.commit()
-    session.refresh(current)
-    return current
-
-
-@app.get("/api/documents")
-def documents():
-    return [
-        {"id": key, "title": value[0], "filename": value[1], "description": value[2]}
-        for key, value in DOCUMENTS.items()
-    ]
-
-
-def document_path(document_id: str) -> tuple[str, Path]:
-    # Lista permitida fixa: não aceitar caminhos enviados pelo navegador.
-    document = DOCUMENTS.get(document_id)
-    if document is None:
-        raise HTTPException(404, "Documento não encontrado.")
-    path = ROOT / document[1]
-    if not path.is_file():
-        raise HTTPException(404, "O arquivo ainda não está nesta pasta do projeto.")
-    return document[0], path
-
-
-@app.get("/api/documents/{document_id}")
-def read_document(document_id: str):
-    title, path = document_path(document_id)
-    return {"title": title, "content": path.read_text(encoding="utf-8")}
-
-
-@app.get("/api/documents/{document_id}/download")
-def download_document(document_id: str):
-    _, path = document_path(document_id)
-    return FileResponse(path, filename=path.name, media_type="text/markdown; charset=utf-8")
+        database = connection.execute(text('SELECT current_database()')).scalar_one()
+        revision = connection.execute(text('SELECT version_num FROM alembic_version')).scalar_one()
+    if revision != ScriptDirectory.from_config(Config(str(ROOT / 'backend/alembic.ini'))).get_current_head():
+        raise HTTPException(503, 'Migração pendente. Execute npm start para atualizar o banco.')
+    return {'status': 'ok', 'database': database, 'migration': revision, 'checked_at': datetime.now(timezone.utc)}

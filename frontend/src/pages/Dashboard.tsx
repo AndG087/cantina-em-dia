@@ -1,39 +1,21 @@
-import { useEffect, useState } from 'react';
-import { ArrowRight, ArrowUpRight, CheckCircle2, CircleDashed, ClipboardCheck, Clock3, Package, Target, TriangleAlert, Wallet, Users } from 'lucide-react';
-import { useRemote, ModuleHeading, ErrorNote, money, localNow, dateTime, count } from '../components/ui';
-import type { MonthlyReport } from './ReportsPage';
-import type { Responsibility } from './TeamPage';
-import type { Item } from './InventoryPage';
-type TargetPage = 'reports' | 'inventory' | 'cash' | 'team' | 'finance' | 'school' | 'purchases' | 'weekly';
-type Data = { report: MonthlyReport; responsibility: Responsibility; low_stock: Item[]; expired_lots: number; pending_expenses_cents: number; registered_items: number; open_cash_sessions: { id: number; opened_at: string; expected_cents: number }[] };
-type Routine = { id: string; page: TargetPage; title: string; status: 'ok' | 'attention' | 'pending'; detail: string };
-const routineLabels = { ok: 'Em dia', attention: 'Atenção', pending: 'Pendente' };
-export default function Dashboard({ navigate }: { navigate: (page: TargetPage) => void }) {
-  const [month, setMonth] = useState(localNow().slice(0, 7)); const remote = useRemote<Data>(`/dashboard?month=${month}`); const routine = useRemote<Routine[]>('/routine');
-  useEffect(() => { const timer = setInterval(() => void remote.refresh(), 30000); return () => clearInterval(timer); }, [remote.refresh]);
-  const data = remote.data; const r = data?.report; const who = data?.responsibility;
-  const alerts: { title: string; text: string; page: TargetPage }[] = [];
-  if (!r?.goal) alerts.push({ title: 'Meta e remuneração pendentes', text: 'Registre o acordo quando seus pais confirmarem a base e o valor.', page: 'reports' });
-  if (data?.registered_items === 0) alerts.push({ title: 'Cadastre os produtos e o saldo inicial', text: 'Comece pela contagem acompanhada do estoque.', page: 'inventory' });
-  if (data?.expired_lots) alerts.push({ title: `${data.expired_lots} lote(s) vencido(s) com saldo`, text: 'Separe os produtos e registre a destinação.', page: 'inventory' });
-  if (data?.pending_expenses_cents) alerts.push({ title: `${money(data.pending_expenses_cents)} em pagamentos pendentes`, text: 'Confira despesas, vencimentos e reembolsos.', page: 'finance' });
-  if (data?.open_cash_sessions.some(c => c.opened_at.slice(0, 10) < localNow().slice(0, 10))) alerts.push({ title: 'Há caixa anterior sem fechamento', text: 'Solicite a contagem ao responsável e confira o turno.', page: 'cash' });
-  if (r?.completeness_notes.length) alerts.push({ title: 'Resultado com informações a conferir', text: r.completeness_notes.join(' '), page: 'reports' });
-  const maximum = Math.max(1, ...(r?.daily.map(d => d.sales_cents) || []));
-  const done = routine.data?.filter(x => x.status === 'ok').length ?? 0;
-  return <><ModuleHeading title="Visão geral da cantina" description="Vendas, dinheiro, estoque e pendências a partir dos registros da operação." onRefresh={() => { void remote.refresh(); void routine.refresh(); }} /><ErrorNote errors={[remote.error, routine.error]} />
-    <section className="panel routine-panel"><div className="panel-heading"><div><span className="eyebrow">ACOMPANHAMENTOS EXIGIDOS</span><h2>Rotina da gestão</h2></div><span className="routine-score"><ClipboardCheck size={18} />{routine.data ? `${done} de ${routine.data.length} em dia` : 'Verificando…'}</span></div>
-      <div className="routine-list">{(routine.data || []).map(item => { const Icon = item.status === 'ok' ? CheckCircle2 : item.status === 'attention' ? TriangleAlert : CircleDashed; return <button key={item.id} className={`routine-item ${item.status}`} onClick={() => navigate(item.page)}><Icon size={19} /><div><strong>{item.title}</strong><p>{item.detail}</p></div><span className={`routine-badge ${item.status}`}>{routineLabels[item.status]}</span><ArrowUpRight size={15} /></button>; })}</div></section>
-    <div className="toolbar"><label>Mês de referência<input className="toolbar-input" type="month" value={month} onChange={e => { if (e.target.value) setMonth(e.target.value); }} /></label><span className="muted">{r ? `Atualizado ${dateTime(r.generated_at)}` : 'Carregando dados…'}</span></div>
-    <div className="metrics-grid operational-metrics">{[
-      { label: 'Vendas registradas no mês', value: r ? money(r.sales_cents) : '—', note: 'Após descontos e cancelamentos', icon: Wallet },
-      { label: 'Despesas lançadas no mês', value: r ? money(r.all_expenses_cents) : '—', note: 'Inclui aquisição de mercadorias', icon: Package },
-      { label: 'Dinheiro esperado na gaveta', value: data?.open_cash_sessions[0] ? money(data.open_cash_sessions[0].expected_cents) : 'Sem caixa aberto', note: 'Conforme os movimentos registrados', icon: Wallet },
-      { label: 'Parcela variável estimada', value: r?.goal?.variable_cents != null ? money(r.goal.variable_cents) : 'Meta pendente', note: 'Somente o excedente da base acordada', icon: Target },
-    ].map(m => <article className="metric-card" key={m.label}><div className="metric-top"><span>{m.label}</span><span className="metric-icon sage"><m.icon size={18} /></span></div><strong className="metric-value">{m.value}</strong><p>{m.note}</p></article>)}</div>
-    <div className="overview-columns"><section className="panel chart-panel"><div className="panel-heading"><div><span className="eyebrow">ACOMPANHAMENTO DO MÊS</span><h2>Vendas registradas por dia</h2></div><button className="text-button" onClick={() => navigate('reports')}>Relatório<ArrowUpRight size={16} /></button></div>{r?.sales_count ? <div className="daily-chart" aria-label={`Vendas registradas em ${month}`}>{r.daily.map((d, i) => <div className="day-column" key={d.day} title={`${d.day}: ${money(d.sales_cents)}`}><div className="day-bar-wrap"><span style={{ height: `${d.sales_cents / maximum * 100}%` }} /></div><small>{i % 5 === 0 || i === r.daily.length - 1 ? d.day.slice(8) : ''}</small></div>)}</div> : <div className="chart-empty"><Wallet size={30} /><strong>Nenhuma venda registrada neste mês</strong><p>As vendas cadastradas ou importadas formarão o gráfico.</p></div>}</section>
-    <section className="panel responsibility-panel"><div className="panel-heading"><div><span className="eyebrow">RESPONSABILIDADE PELO CAIXA</span><h2>Quem está no controle</h2></div><Users size={22} className="muted" /></div><div className="current-person"><span>Previsto pela escala</span><strong>{who?.closed ? 'Cantina fechada no calendário' : who?.expected?.name || 'Sem escala definida'}</strong><small>{who?.source || 'Conforme dia e horário'}</small></div><div className="current-person"><span>Última confirmação de hoje</span><strong>{who?.confirmed?.name || 'Sem confirmação'}</strong><small>{who?.confirmed_at ? dateTime(who.confirmed_at) : 'A escala não comprova presença'}</small></div><button className="text-button" onClick={() => navigate('team')}>Ver equipe e escala<ArrowRight size={16} /></button></section></div>
-    <div className="overview-columns"><section className="panel"><div className="panel-heading"><div><span className="eyebrow">PRÓXIMAS AÇÕES</span><h2>Pendências para acompanhar</h2></div><Clock3 size={21} className="muted" /></div><div className="alert-list">{alerts.length ? alerts.map(a => <button key={a.title} onClick={() => navigate(a.page)}><div><strong>{a.title}</strong><p>{a.text}</p></div><ArrowUpRight size={15} /></button>) : <p className="notice">Nenhuma pendência identificada nos registros disponíveis. Mantenha as conferências físicas e os fechamentos.</p>}</div></section>
-    <section className="panel"><div className="panel-heading"><div><span className="eyebrow">REPOSIÇÃO</span><h2>Itens sem saldo ou abaixo do mínimo</h2></div><Package size={21} className="muted" /></div><div className="low-stock-list">{data?.low_stock.length ? data.low_stock.map(i => <div key={i.id}><span>{i.name}<small>{i.category}</small></span><strong>{count(i.balance)} {i.unit}</strong></div>) : <p className="notice">Nenhum item sinalizado no estoque registrado.</p>}</div><button className="text-button panel-link" onClick={() => navigate('inventory')}>Conferir estoque<ArrowRight size={16} /></button></section></div>
+import { ArrowUpRight, CheckCircle2, CircleDashed, TriangleAlert } from 'lucide-react';
+import type { Page } from '../App';
+import { Badge, ErrorNote, PageHeading, useRemote } from '../components/ui';
+
+type Routine = { id: string; page: Page; title: string; status: 'ok' | 'attention' | 'pending'; detail: string };
+const looks = { ok: { label: 'Em dia', tone: 'ok', icon: CheckCircle2 }, attention: { label: 'Atenção', tone: 'warn', icon: TriangleAlert }, pending: { label: 'Pendente', tone: 'danger', icon: CircleDashed } } as const;
+
+export default function Dashboard({ navigate }: { navigate: (page: Page) => void }) {
+  const routine = useRemote<Routine[]>('/routine');
+  const done = routine.data?.filter(r => r.status === 'ok').length ?? 0;
+  return <>
+    <PageHeading title="Rotina da gestão" description="As cinco atividades que precisam ser acompanhadas na cantina, com a situação de cada uma." onRefresh={() => void routine.refresh()} />
+    <ErrorNote errors={[routine.error]} />
+    <section className="panel">
+      <div className="panel-heading"><h2>Acompanhamentos</h2><span className="muted">{routine.data ? `${done} de ${routine.data.length} em dia` : 'Verificando…'}</span></div>
+      <div className="routine-list">{(routine.data || []).map(item => { const look = looks[item.status]; return <button key={item.id} className={`routine-item ${look.tone}`} onClick={() => navigate(item.page)}>
+        <look.icon size={20} /><div><strong>{item.title}</strong><p>{item.detail}</p></div><Badge tone={look.tone}>{look.label}</Badge><ArrowUpRight size={15} className="hide-mobile" /></button>; })}</div>
+    </section>
+    <div className="notice">Sugestão de ritmo: caixa todos os dias; notas a cada recebimento; contagem de estoque, gastos, calendário e relatório uma vez por semana.</div>
   </>;
 }

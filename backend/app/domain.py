@@ -1,53 +1,61 @@
-from datetime import datetime, timezone, timedelta
+"""Peças comuns: fuso horário, datas, valores e validação de entrada."""
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
+from typing import Annotated
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
-from fastapi.encoders import jsonable_encoder
-from sqlalchemy import select, text
-from sqlalchemy.orm import Session
+from pydantic import BaseModel, ConfigDict, Field
 
-TZ = ZoneInfo("America/Sao_Paulo")
+TZ = ZoneInfo('America/Sao_Paulo')
+Money = Annotated[int, Field(ge=0, le=2_000_000_000)]
+Qty = Annotated[Decimal, Field(max_digits=14, decimal_places=3)]
 
 
-def now():
+class Input(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra='forbid')
+
+
+def now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def today() -> date:
+    return now().astimezone(TZ).date()
+
+
+def day_start(day: date) -> datetime:
+    return datetime.combine(day, time(0), TZ)
 
 
 def aware(value: datetime) -> datetime:
     if value.tzinfo is None:
-        raise HTTPException(422, "Informe data e horário com fuso horário.")
-    if value > now().replace(microsecond=0) + timedelta(minutes=1):
-        raise HTTPException(422, "A ocorrência não pode estar no futuro.")
+        raise HTTPException(422, 'Informe data e horário com fuso horário.')
+    if value > now() + timedelta(minutes=1):
+        raise HTTPException(422, 'A data não pode estar no futuro.')
     return value
 
 
-def get_or_404(session, model, key):
-    row = session.get(model, key)
+def get_or_404(db, model, key):
+    row = db.get(model, key)
     if row is None:
-        raise HTTPException(404, "Registro não encontrado.")
+        raise HTTPException(404, 'Registro não encontrado.')
     return row
 
 
-def lock(session: Session, key: int):
-    session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
-
-
-def audit(session: Session, entity: str, key, action: str, details: dict):
-    from .models import AuditLog
-    session.add(AuditLog(entity=entity, entity_id=str(key), action=action, details=jsonable_encoder(details)))
-
-
-def rows(session, model, limit=500):
-    return session.scalars(select(model).order_by(model.id.desc()).limit(limit)).all()
-
-
-def quantity(value) -> Decimal:
-    return Decimal(str(value)).quantize(Decimal("0.001"))
+def as_dict(row, **extra) -> dict:
+    return {column.name: getattr(row, column.name) for column in row.__table__.columns} | extra
 
 
 def brl(cents) -> str:
-    """Formata centavos como moeda brasileira, para mensagens e relatórios."""
     value = Decimal(int(cents)) / 100
-    text = f"{abs(value):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    text = f'{abs(value):,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
     return f"{'-' if value < 0 else ''}R$ {text}"
+
+
+def qty(value) -> str:
+    return format(Decimal(str(value)).normalize(), 'f').replace('.', ',')
+
+
+def ddmm(day: date) -> str:
+    return day.strftime('%d/%m')

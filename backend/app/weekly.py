@@ -1,12 +1,9 @@
-"""Relatório semanal da gestão e situação das rotinas de acompanhamento.
+"""Relatório semanal e situação das cinco rotinas pedidas pela gestão.
 
-O relatório reúne, para uma semana de segunda a domingo: vendas comparadas à semana
-anterior, conferência diária do caixa, compras e notas, inventário, gastos fora do padrão
-e o calendário da escola. Ele é gerado a partir dos registros e pode ser impresso,
-copiado para o WhatsApp e guardado como versão entregue.
+A semana vai de segunda a domingo e é comparada com a anterior. O relatório pode ser
+impresso, copiado para o WhatsApp, baixado em Markdown e guardado como versão entregue.
 """
-from datetime import date, datetime, time, timedelta
-from decimal import Decimal
+from datetime import date, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -16,20 +13,18 @@ from pydantic import Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .cash_review import cash_days
+from .cash import cash_days
 from .database import get_session
-from .domain import TZ, audit, brl, get_or_404, lock, now, rows
-from .expense_alerts import expense_alerts
-from .models import AppSettings, InventoryCount, Sale, SalePayment, StockItem, StockLot, WeeklyReport
+from .domain import TZ, Input, as_dict, brl, day_start, ddmm, get_or_404, now, qty, today
+from .expenses import expense_alerts
+from .models import CashSession, Expense, InventoryCount, StockItem, WeeklyReport
 from .purchases import pending_orders, receipt_checks
-from .reports import period_report
-from .school import SHIFTS, WEEKDAYS, calendar_days, calendar_summary, last_check, today
-from .team import Input
+from .school import SHIFTS, WEEKDAYS, calendar_days, calendar_summary, last_check
+from .stock import balances
 
 router = APIRouter(prefix='/api', tags=['Relatório semanal'])
 DB = Annotated[Session, Depends(get_session)]
-METHODS = {'cash': 'Dinheiro', 'pix': 'Pix', 'debit': 'Débito', 'credit': 'Crédito'}
-STATUS_LABELS = {'open': 'Funcionamento normal', 'closed': 'Fechada', 'reduced': 'Movimento reduzido', 'increased': 'Movimento maior'}
+STATUS = {'open': 'Normal', 'closed': 'Fechada', 'reduced': 'Movimento reduzido', 'increased': 'Movimento maior'}
 INVENTORY_INTERVAL_DAYS = 7
 
 
@@ -42,212 +37,122 @@ def monday_of(day):
     return day - timedelta(days=day.weekday())
 
 
-def instant(day):
-    return datetime.combine(day, time(0), TZ)
+def week_totals(db, monday):
+    """Totais informados nos fechamentos de caixa e despesas lançadas na semana."""
+    start, end = day_start(monday), day_start(monday + timedelta(days=7))
+    closed = db.scalars(select(CashSession).where(CashSession.opened_at >= start, CashSession.opened_at < end, CashSession.closed_at.is_not(None))).all()
+    expenses = db.scalars(select(Expense).where(Expense.occurred_at >= start, Expense.occurred_at < end)).all()
+    cash, pix, card = (sum(getattr(r, field) for r in closed) for field in ('cash_sales_cents', 'pix_cents', 'card_cents'))
+    return {'sales_cents': cash + pix + card, 'cash_cents': cash, 'pix_cents': pix, 'card_cents': card, 'days_closed': len(closed),
+            'difference_cents': sum(r.difference_cents for r in closed), 'expenses_cents': sum(e.amount_cents for e in expenses if e.receipt_id is None),
+            'purchases_cents': sum(e.amount_cents for e in expenses if e.receipt_id is not None)}
 
 
-def ddmm(day):
-    return day.strftime('%d/%m')
-
-
-def full(day):
-    return day.strftime('%d/%m/%Y')
-
-
-def pct(current, previous):
+def variation(current, previous):
     if not previous:
-        return None
-    return round((current - previous) * 100 / previous, 1)
+        return '—'
+    return f'{(current - previous) * 100 / previous:+.1f}%'.replace('.', ',')
 
 
-def pct_text(value):
-    return '—' if value is None else f"{value:+.1f}%".replace('.', ',')
-
-
-def quantity(value):
-    text = format(Decimal(str(value)).normalize(), 'f')
-    return text.replace('.', ',')
-
-
-def age_text(days):
-    return 'hoje' if days == 0 else 'ontem' if days == 1 else f'há {days} dias'
-
-
-def sentence(value):
-    text = str(value).strip()
-    return text if text.endswith(('.', '!', '?')) else text + '.'
-
-
-def cell(value):
-    return str(value).replace('|', '/').replace('\n', ' ')
+def sentence(text):
+    text = str(text).strip().replace('|', '/')
+    return text if text.endswith(('.', '?', '!')) else text + '.'
 
 
 def weekly_report(db, any_day):
-    monday = monday_of(any_day); sunday = monday + timedelta(days=6); current_day = today()
+    monday, current_day = monday_of(any_day), today()
+    sunday = monday + timedelta(days=6)
     if monday > current_day:
         raise HTTPException(422, 'A semana escolhida ainda não começou.')
-    start, end = instant(monday), instant(sunday + timedelta(days=1))
-    current = period_report(db, start, end)
-    previous = period_report(db, start - timedelta(days=7), start)
-    methods = dict(db.execute(select(SalePayment.method, func.sum(SalePayment.amount_cents)).join(Sale, SalePayment.sale_id == Sale.id)
-                              .where(Sale.occurred_at >= start, Sale.occurred_at < end, Sale.voided.is_(False)).group_by(SalePayment.method)).all())
-    cash = cash_days(db, monday, min(sunday, current_day))
-    cash = [d for d in cash if not (d['state'] == 'not_applicable' and d['day'].weekday() >= 5)]
+    start, end = day_start(monday), day_start(sunday + timedelta(days=1))
+    totals, previous = week_totals(db, monday), week_totals(db, monday - timedelta(days=7))
+    cash = [d for d in cash_days(db, monday, min(sunday, current_day)) if not (d['state'] == 'not_applicable' and d['day'].weekday() >= 5)]
     receipts = receipt_checks(db, start, end)
     alerts = expense_alerts(db, monday, sunday)
     items = {i.id: i for i in db.scalars(select(StockItem))}
-    counts = db.scalars(select(InventoryCount).where(InventoryCount.counted_at >= start, InventoryCount.counted_at < end).order_by(InventoryCount.counted_at)).all()
-    low = [i for i in items.values() if i.active and (i.balance < i.minimum or i.balance == 0)]
-    low.sort(key=lambda i: (i.balance > 0, i.name))
-    expired = db.scalar(select(func.count()).select_from(StockLot).where(StockLot.balance > 0, StockLot.expiry < current_day))
-    expiring = db.execute(select(StockLot, StockItem).join(StockItem, StockLot.item_id == StockItem.id)
-                          .where(StockLot.balance > 0, StockLot.expiry >= current_day, StockLot.expiry <= current_day + timedelta(days=7)).order_by(StockLot.expiry)).all()
+    counts = db.scalars(select(InventoryCount).where(InventoryCount.counted_at >= start, InventoryCount.counted_at < end)).all()
+    stock = balances(db)
+    low = sorted((i for i in items.values() if i.active and stock.get(i.id, 0) <= i.minimum), key=lambda i: i.name)
+    upcoming = calendar_summary(db, sunday + timedelta(days=1), 14)
     week_days = [d for d in calendar_days(db, monday, sunday) if d['day'].weekday() < 5]
-    next_monday = sunday + timedelta(days=1)
-    upcoming = calendar_summary(db, next_monday, 14)
-    sales = {'current': current['sales_cents'], 'previous': previous['sales_cents'], 'variation_pct': pct(current['sales_cents'], previous['sales_cents'])}
+    orders, check = pending_orders(db), last_check(db)
     pending_cash = [d for d in cash if d['state'] in {'pending', 'outdated'}]
-    open_alerts = [a for a in alerts['alerts'] if a['explanation'] is None and a['severity'] != 'info']
-    divergent = [r for r in receipts if r['status'] == 'divergent']
-    missing_invoice = [r for r in receipts if r['status'] == 'missing_invoice']
-    orders = pending_orders(db)
-    check = last_check(db)
+    open_alerts = [a for a in alerts['alerts'] if a['explanation'] is None]
+    divergent = [r for r in receipts if not r['ok']]
     actions = []
     if pending_cash:
-        actions.append(f'Conferir o caixa de {len(pending_cash)} dia(s): ' + ', '.join(ddmm(d['day']) for d in pending_cash) + '.')
+        actions.append(f"Conferir o caixa de {len(pending_cash)} dia(s): {', '.join(ddmm(d['day']) for d in pending_cash)}.")
+    if divergent:
+        actions.append(f'Verificar {len(divergent)} nota(s) com divergência.')
+    if orders:
+        actions.append(f'Acompanhar {len(orders)} pedido(s) com itens a receber.')
+    if not counts:
+        actions.append('Fazer a contagem do estoque (nenhuma contagem na semana).')
+    if low:
+        actions.append(f'Repor ou confirmar {len(low)} item(ns) no mínimo ou abaixo dele.')
     if open_alerts:
         actions.append(f'Explicar {len(open_alerts)} gasto(s) fora do padrão.')
-    if divergent:
-        actions.append(f'Verificar {len(divergent)} nota(s) com divergência de valor ou custo.')
-    if missing_invoice:
-        actions.append(f'Informar o valor total de {len(missing_invoice)} nota(s) recebida(s) para conferência.')
-    if orders:
-        actions.append(f'Acompanhar {len(orders)} pedido(s) de compra aguardando aprovação ou entrega.')
-    if low:
-        actions.append(f'Repor ou confirmar {len(low)} item(ns) sem saldo ou abaixo do mínimo.')
-    if expired:
-        actions.append(f'Dar destino a {expired} lote(s) vencido(s) com saldo.')
-    if not counts:
-        actions.append('Fazer contagem física do estoque (nenhuma contagem registrada na semana).')
     if check is None or check['overdue']:
         actions.append('Averiguar o calendário da escola (cursos, feriados e paralisações).')
-    for note in current['completeness_notes']:
-        actions.append(note)
-    settings = db.get(AppSettings, 1)
-    report = {'week_start': monday, 'week_end': sunday, 'label': f'{ddmm(monday)} a {full(sunday)}', 'complete_week': sunday < current_day, 'generated_at': now(),
-              'business_name': settings.business_name if settings else 'Cantina em Dia', 'location': settings.location if settings else '',
-              'current': current, 'previous': previous, 'sales': sales,
-              'payment_mix': {key: methods.get(key, 0) for key in METHODS},
-              'cash_days': cash, 'cash_pending_days': len(pending_cash), 'cash_reviewed_days': sum(1 for d in cash if d['state'] == 'reviewed'),
-              'receipts': receipts, 'pending_orders': orders,
-              'inventory_counts': [{'item': items[c.item_id].name, 'unit': items[c.item_id].unit, 'counted_at': c.counted_at, 'expected': c.expected, 'counted': c.counted, 'difference': c.difference, 'reason': c.reason} for c in counts],
-              'low_stock': [{'name': i.name, 'unit': i.unit, 'balance': i.balance, 'minimum': i.minimum} for i in low],
-              'expired_lots': expired, 'expiring_lots': [{'item': item.name, 'code': lot.code, 'expiry': lot.expiry, 'balance': lot.balance, 'unit': item.unit} for lot, item in expiring],
-              'expense_alerts': alerts, 'open_alerts': len(open_alerts),
-              'calendar': {'week_days': week_days, 'upcoming': upcoming, 'last_check': check},
-              'actions': actions}
-    report['markdown'] = render_markdown(report)
-    report['text'] = render_text(report)
-    return report
 
-
-def render_markdown(r):
-    c, p = r['current'], r['previous']
-    ticket = lambda data: brl(data['sales_cents'] // data['sales_count']) if data['sales_count'] else '—'
-    lines = [f"# Relatório semanal · {r['label']}", '',
-             f"{cell(r['business_name'])}{' · ' + cell(r['location']) if r['location'] else ''} · gerado em {r['generated_at'].astimezone(TZ).strftime('%d/%m/%Y %H:%M')}"
-             + ('' if r['complete_week'] else ' · **semana em andamento**'), '',
-             '## Resumo da semana', '', '| Indicador | Semana | Semana anterior | Variação |', '|---|---:|---:|---:|']
-    for label, key in [('Vendas após descontos e cancelamentos', 'sales_cents'), ('Recebimentos líquidos', 'receipts_net_cents'), ('Despesas lançadas (inclui mercadorias)', 'all_expenses_cents'),
-                       ('Perdas, consumo da equipe e ajustes', 'losses_and_staff_cents'), ('Diferenças de caixa', 'cash_difference_cents')]:
-        lines.append(f"| {label} | {brl(c[key])} | {brl(p[key])} | {pct_text(pct(c[key], p[key]))} |")
-    lines.append(f"| Pedidos registrados | {c['sales_count']} | {p['sales_count']} | {pct_text(pct(c['sales_count'], p['sales_count']))} |")
-    lines.append(f"| Ticket médio | {ticket(c)} | {ticket(p)} | — |")
-    lines.append(f"| Resultado gerencial registrado | {brl(c['recorded_result_cents'])} | {brl(p['recorded_result_cents'])} | — |")
-    lines += ['', 'Formas de pagamento: ' + ' · '.join(f"{label} {brl(r['payment_mix'][key])}" for key, label in METHODS.items()) + '.', '']
-    lines += ['## Caixa: aberturas, fechamentos e conferência diária', '']
-    if r['cash_days']:
-        lines += ['| Dia | Calendário | Vendas em dinheiro | Retiradas | Diferença | Conferência |', '|---|---|---:|---:|---:|---|']
-        for d in r['cash_days']:
-            review = d['review']
-            status = d['state_label'] + (f" ({'sem ressalvas' if review['status'] == 'ok' else 'com ressalvas'})" if review and d['state'] == 'reviewed' else '')
-            lines.append(f"| {WEEKDAYS[d['day'].weekday()][:3]} {ddmm(d['day'])} | {STATUS_LABELS[d['calendar_status']]} | {brl(d['cash_sales_cents'])} | {brl(d['withdrawals_cents'])} | {brl(d['closing_difference_cents'])} | {status} |")
-        issues = [f"{ddmm(d['day'])}: {issue}" for d in r['cash_days'] for issue in d['issues']]
-        lines += [''] + ([f'- {cell(i)}' for i in issues] if issues else ['Nenhum ponto de atenção nas aberturas e fechamentos registrados.'])
+    lines = [f'# Relatório semanal · {ddmm(monday)} a {sunday:%d/%m/%Y}', '',
+             f"Cantina do Senai Paulista · gerado em {now().astimezone(TZ):%d/%m/%Y %H:%M}" + ('' if sunday < current_day else ' · **semana em andamento**'), '',
+             '## Resumo', '', '| Indicador | Semana | Semana anterior | Variação |', '|---|---:|---:|---:|']
+    for label, key in [('Vendas informadas nos fechamentos', 'sales_cents'), ('Em dinheiro', 'cash_cents'), ('Pix', 'pix_cents'), ('Cartão', 'card_cents'),
+                       ('Compras de mercadorias', 'purchases_cents'), ('Outras despesas', 'expenses_cents'), ('Diferenças de caixa', 'difference_cents')]:
+        lines.append(f'| {label} | {brl(totals[key])} | {brl(previous[key])} | {variation(totals[key], previous[key])} |')
+    lines += ['', '## Caixa: aberturas e fechamentos', '']
+    if cash:
+        lines += ['| Dia | Calendário | Vendas | Retiradas | Diferença | Conferência |', '|---|---|---:|---:|---:|---|']
+        for d in cash:
+            review = f" ({'sem ressalvas' if d['review']['status'] == 'ok' else 'com ressalvas'})" if d['state'] == 'reviewed' else ''
+            lines.append(f"| {WEEKDAYS[d['day'].weekday()][:3]} {ddmm(d['day'])} | {STATUS[d['calendar_status']]} | {brl(d['cash_sales_cents'] + d['pix_cents'] + d['card_cents'])} | "
+                         f"{brl(d['withdrawals_cents'])} | {brl(d['difference_cents'])} | {d['state_label']}{review} |")
+        issues = [f"- {ddmm(d['day'])}: {sentence(issue)}" for d in cash for issue in d['issues']]
+        lines += [''] + (issues or ['Nenhum ponto de atenção nas aberturas e fechamentos.'])
     else:
-        lines.append('Nenhum dia a conferir nesta semana.')
-    lines += ['', '## Compras, notas e estoque', '']
-    total = sum(x['items_total_cents'] for x in r['receipts'])
-    lines.append(f"- Recebimentos: {len(r['receipts'])} nota(s), {brl(total)} em mercadorias.")
-    for receipt in r['receipts']:
-        if receipt['issues']:
-            lines.append(f"- Nota {cell(receipt['document'])} ({cell(receipt['supplier'])}): " + ' '.join(sentence(cell(i)) for i in receipt['issues']))
-        elif receipt['status'] == 'missing_invoice':
-            lines.append(f"- Nota {cell(receipt['document'])} ({cell(receipt['supplier'])}): valor total da nota não informado.")
-    for order in r['pending_orders']:
-        missing = '; '.join(f"{cell(m['name'])} {quantity(m['missing'])} {m['unit']}" for m in order['missing'])
-        lines.append(f"- Pedido #{order['id']} ({cell(order['supplier'])}): {'aguardando aprovação' if order['status'] == 'requested' else 'falta receber ' + missing}.")
-    counted = r['inventory_counts']
-    differences = [x for x in counted if x['difference']]
-    lines.append(f"- Contagem física: {len(counted)} item(ns) contado(s), {len(differences)} com diferença." if counted else '- Contagem física: nenhuma registrada na semana.')
-    for x in differences:
-        lines.append(f"  - {cell(x['item'])}: esperado {quantity(x['expected'])}, contado {quantity(x['counted'])} {x['unit']} (diferença {quantity(x['difference'])}). {cell(x['reason'])}")
-    if r['low_stock']:
-        names = ', '.join(f"{cell(i['name'])} ({quantity(i['balance'])} {i['unit']})" for i in r['low_stock'][:15])
-        lines.append(f"- Sem saldo ou abaixo do mínimo: {names}{' e outros' if len(r['low_stock']) > 15 else ''}.")
-    if r['expired_lots']:
-        lines.append(f"- {r['expired_lots']} lote(s) vencido(s) ainda com saldo.")
-    for lot in r['expiring_lots']:
-        lines.append(f"- Vence em {ddmm(lot['expiry'])}: {cell(lot['item'])}, lote {cell(lot['code'])}, {quantity(lot['balance'])} {lot['unit']}.")
+        lines.append('Nenhum dia a conferir.')
+    lines += ['', '## Compras e estoque', '', f"- {len(receipts)} nota(s) recebida(s), {brl(sum(r['total_cents'] for r in receipts))} em mercadorias."]
+    lines += [f"- Nota {r['document']} ({r['supplier']}): {' '.join(sentence(i) for i in r['issues'])}" for r in divergent]
+    lines += [f"- Pedido #{o['id']} ({o['supplier']}): falta receber {'; '.join(qty(m['missing']) + ' ' + m['unit'] + ' de ' + m['name'] for m in o['missing'])}." for o in orders]
+    differences = [c for c in counts if c.difference]
+    lines.append(f'- Contagem: {len(counts)} item(ns) contado(s), {len(differences)} com diferença (saídas sem lançamento, como vendas, consumo ou perdas).' if counts else '- Contagem: nenhuma registrada na semana.')
+    lines += [f'  - {items[c.item_id].name}: esperado {qty(c.expected)}, contado {qty(c.counted)} {items[c.item_id].unit}. {sentence(c.note)}' for c in differences]
+    if low:
+        lines.append('- No mínimo ou abaixo: ' + ', '.join(f'{i.name} ({qty(stock.get(i.id, 0))} {i.unit})' for i in low[:15]) + ('…' if len(low) > 15 else '') + '.')
     lines += ['', '## Gastos fora do padrão', '']
-    found = r['expense_alerts']['alerts']
-    if found:
-        for a in found:
-            explanation = f" Explicação: {cell(a['explanation']['note'])}" if a['explanation'] else (' **Sem explicação registrada.**' if a['severity'] != 'info' else '')
-            lines.append(f"- [{a['kind_label']}] {sentence(cell(a['title']))} {cell(a['detail'])}{explanation}")
-    else:
-        lines.append('Nenhum gasto fora do padrão identificado nos registros da semana.')
-    if r['expense_alerts']['insufficient_history']:
-        lines.append(f"\nCategorias ainda sem histórico suficiente para comparação: {', '.join(cell(x) for x in r['expense_alerts']['insufficient_history'])}.")
-    cal = r['calendar']; check = cal['last_check']; upcoming = cal['upcoming']
-    lines += ['', '## Calendário da escola', '',
-              f"- Última averiguação: {full(check['checked_at'].astimezone(TZ).date())} ({cell(check['source'])})." if check else '- Calendário ainda não averiguado com a escola.']
-    altered = [d for d in cal['week_days'] if d['status'] != 'open']
-    lines.append('- Nesta semana: ' + ('; '.join(f"{ddmm(d['day'])} {STATUS_LABELS[d['status']].lower()} ({cell(', '.join(d['reasons']))})" for d in altered) if altered else 'funcionamento normal previsto em todos os dias úteis.'))
-    lines.append('- Próximas duas semanas: ' + ('; '.join(f"{cell(e['title'])} ({ddmm(e['starts_on'])}{'–' + ddmm(e['ends_on']) if e['ends_on'] != e['starts_on'] else ''}, {e['effect_label'].lower()})" for e in upcoming['events']) if upcoming['events'] else 'nenhum feriado, recesso ou paralisação registrado.'))
+    for a in alerts['alerts']:
+        explanation = f" Explicação: {sentence(a['explanation']['note'])}" if a['explanation'] else ' **Sem explicação.**'
+        lines.append(f"- [{a['kind_label']}] {sentence(a['title'])} {a['detail']}{explanation}")
+    if not alerts['alerts']:
+        lines.append('Nenhum gasto fora do padrão nos registros da semana.')
+    lines += ['', '## Calendário da escola', '', f"- Última averiguação: {check['checked_at'].astimezone(TZ):%d/%m/%Y} ({check['source']})." if check else '- Calendário ainda não averiguado.']
+    altered = [d for d in week_days if d['status'] != 'open']
+    lines.append('- Nesta semana: ' + ('; '.join(f"{ddmm(d['day'])} {STATUS[d['status']].lower()}" for d in altered) if altered else 'funcionamento normal em todos os dias úteis.'))
+    lines.append('- Próximas duas semanas: ' + ('; '.join(f"{e['title']} ({ddmm(e['starts_on'])}, {e['effect_label'].lower()})" for e in upcoming['events']) if upcoming['events'] else 'sem feriados ou paralisações registrados.'))
     active = upcoming['active_courses']
     if active:
-        by_shift = '; '.join(f"{label}: {', '.join(cell(x['name']) for x in active if x['shift'] == key)}" for key, label in SHIFTS.items() if any(x['shift'] == key for x in active))
-        students = [x['students'] for x in active if x['students'] is not None]
-        lines.append(f"- Cursos em andamento: {len(active)}{f' (cerca de {sum(students)} alunos informados)' if students else ''}. {by_shift}.")
-    else:
-        lines.append('- Nenhum curso em andamento cadastrado.')
-    for x in upcoming['ending_soon']:
-        lines.append(f"- Termina em {ddmm(x['ends_on'])}: {cell(x['name'])} ({x['shift_label'].lower()}).")
-    for x in upcoming['starting_soon']:
-        lines.append(f"- Começa em {ddmm(x['starts_on'])}: {cell(x['name'])} ({x['shift_label'].lower()}).")
-    lines += ['', '## Pendências e próximos passos', '']
-    lines += [f'- [ ] {cell(a)}' for a in r['actions']] or ['Nenhuma pendência identificada nos registros.']
-    lines += ['', '---', '', 'Valores conforme os registros lançados no sistema. Diferenças e alertas indicam pontos de conferência, não prova de erro ou desvio.']
-    return '\n'.join(lines)
+        students = [c['students'] for c in active if c['students'] is not None]
+        by_shift = '; '.join(f"{label}: {', '.join(c['name'] for c in active if c['shift'] == key)}" for key, label in SHIFTS.items() if any(c['shift'] == key for c in active))
+        lines.append(f"- Cursos em andamento: {len(active)}{f' (cerca de {sum(students)} alunos)' if students else ''}. {by_shift}.")
+    lines += [f"- Termina em {ddmm(c['ends_on'])}: {c['name']}." for c in upcoming['ending_soon']]
+    lines += [f"- Começa em {ddmm(c['starts_on'])}: {c['name']}." for c in upcoming['starting_soon']]
+    lines += ['', '## Pendências', ''] + ([f'- [ ] {a}' for a in actions] or ['Nenhuma pendência nos registros.'])
+    lines += ['', '---', '', 'Valores conforme os registros lançados. Diferenças e alertas são pontos de conferência, não prova de erro ou desvio.']
 
-
-def render_text(r):
-    c = r['current']; mix = r['payment_mix']
-    lines = [f"*Relatório semanal · {r['business_name']}*", f"Semana de {r['label']}{'' if r['complete_week'] else ' (em andamento)'}", '',
-             f"*Vendas:* {brl(c['sales_cents'])} em {c['sales_count']} pedido(s) · {pct_text(r['sales']['variation_pct'])} vs. semana anterior",
-             f"Dinheiro {brl(mix['cash'])} · Pix {brl(mix['pix'])} · Cartão {brl(mix['debit'] + mix['credit'])}",
-             f"*Despesas lançadas:* {brl(c['all_expenses_cents'])}",
-             f"*Caixa:* {r['cash_reviewed_days']} dia(s) conferido(s), {r['cash_pending_days']} pendente(s) · diferenças {brl(c['cash_difference_cents'])}",
-             f"*Compras:* {len(r['receipts'])} nota(s), {sum(1 for x in r['receipts'] if x['status'] == 'divergent')} com divergência · {len(r['pending_orders'])} pedido(s) em aberto",
-             f"*Estoque:* {len(r['inventory_counts'])} item(ns) contado(s) · {len(r['low_stock'])} abaixo do mínimo",
-             f"*Gastos fora do padrão:* {len(r['expense_alerts']['alerts'])} alerta(s), {r['open_alerts']} sem explicação"]
-    events = r['calendar']['upcoming']['events']
-    if events:
-        lines.append('*Calendário:* ' + '; '.join(f"{e['title']} {ddmm(e['starts_on'])} ({e['effect_label'].lower()})" for e in events[:4]))
-    if r['actions']:
-        lines += ['', '*Pendências:*'] + [f'• {a}' for a in r['actions'][:8]]
-    return '\n'.join(lines)
+    text = [f'*Relatório semanal da cantina* · {ddmm(monday)} a {ddmm(sunday)}', '',
+            f"*Vendas:* {brl(totals['sales_cents'])} ({variation(totals['sales_cents'], previous['sales_cents'])} vs. semana anterior)",
+            f"Dinheiro {brl(totals['cash_cents'])} · Pix {brl(totals['pix_cents'])} · Cartão {brl(totals['card_cents'])}",
+            f"*Compras:* {brl(totals['purchases_cents'])} · *Outras despesas:* {brl(totals['expenses_cents'])}",
+            f"*Caixa:* {sum(1 for d in cash if d['state'] == 'reviewed')} dia(s) conferido(s), {len(pending_cash)} pendente(s) · diferenças {brl(totals['difference_cents'])}",
+            f"*Notas:* {len(receipts)} recebida(s), {len(divergent)} com divergência · *Estoque:* {len(low)} item(ns) a repor",
+            f"*Gastos fora do padrão:* {len(alerts['alerts'])} ({len(open_alerts)} sem explicação)"]
+    if upcoming['events']:
+        text.append('*Calendário:* ' + '; '.join(f"{e['title']} {ddmm(e['starts_on'])}" for e in upcoming['events'][:4]))
+    if actions:
+        text += ['', '*Pendências:*'] + [f'• {a}' for a in actions]
+    return {'week_start': monday, 'week_end': sunday, 'complete_week': sunday < current_day, 'totals': totals, 'previous': previous,
+            'cash_pending_days': len(pending_cash), 'open_alerts': len(open_alerts), 'actions': actions, 'markdown': '\n'.join(lines), 'text': '\n'.join(text)}
 
 
 @router.get('/reports/weekly')
@@ -263,57 +168,54 @@ def weekly_markdown(db: DB, week: date | None = None):
 
 @router.get('/weekly-reports')
 def saved(db: DB):
-    return [{'id': r.id, 'week_start': r.week_start, 'version': r.version, 'note': r.note, 'created_at': r.created_at,
-             'complete_week': r.snapshot.get('complete_week'), 'sales_cents': r.snapshot.get('current', {}).get('sales_cents'), 'actions': len(r.snapshot.get('actions', []))} for r in rows(db, WeeklyReport, 200)]
+    rows = db.scalars(select(WeeklyReport).order_by(WeeklyReport.id.desc()).limit(100))
+    return [{'id': r.id, 'week_start': r.week_start, 'version': r.version, 'note': r.note, 'created_at': r.created_at} for r in rows]
 
 
 @router.get('/weekly-reports/{key}')
 def saved_detail(key: int, db: DB):
     row = get_or_404(db, WeeklyReport, key)
-    return {'id': row.id, 'week_start': row.week_start, 'version': row.version, 'note': row.note, 'created_at': row.created_at, 'markdown': row.snapshot.get('markdown', ''), 'text': row.snapshot.get('text', '')}
+    return as_dict(row, markdown=row.snapshot['markdown'], text=row.snapshot['text'])
 
 
 @router.post('/weekly-reports', status_code=201)
 def save_report(data: SaveIn, db: DB):
-    lock(db, 1201)
     report = weekly_report(db, data.week)
     version = (db.scalar(select(func.max(WeeklyReport.version)).where(WeeklyReport.week_start == report['week_start'])) or 0) + 1
     row = WeeklyReport(week_start=report['week_start'], version=version, note=data.note, snapshot=jsonable_encoder(report))
-    db.add(row); db.flush(); audit(db, 'weekly_report', row.id, 'saved', {'week_start': report['week_start'], 'version': version, 'note': data.note}); db.commit(); db.refresh(row)
-    return {'id': row.id, 'week_start': row.week_start, 'version': row.version, 'created_at': row.created_at}
+    db.add(row); db.commit(); db.refresh(row)
+    return {'id': row.id, 'week_start': row.week_start, 'version': row.version}
 
 
 @router.get('/routine')
 def routine(db: DB):
-    """Situação das cinco rotinas de acompanhamento exigidas pela gestão."""
-    current_day = today(); result = []
+    """Situação das cinco rotinas: ok (em dia), attention (atenção) ou pending (pendente)."""
+    current_day = today()
     check = last_check(db)
     window = calendar_summary(db, current_day, 14)
-    events = len(window['events'])
     if check is None:
-        result.append({'id': 'calendar', 'page': 'school', 'title': 'Calendário da escola', 'status': 'pending', 'detail': 'Ainda não averiguado. Confirme cursos em andamento, feriados e paralisações com a escola.'})
+        calendar = ('pending', 'Ainda não averiguado. Confirme cursos, feriados e paralisações com a escola.')
     else:
-        result.append({'id': 'calendar', 'page': 'school', 'title': 'Calendário da escola', 'status': 'attention' if check['overdue'] else 'ok',
-                       'detail': f"Averiguado {age_text(check['age_days'])}. {len(window['active_courses'])} curso(s) em andamento; {events} evento(s) nos próximos 14 dias."})
-    last_count = db.scalar(select(func.max(InventoryCount.counted_at)))
-    week_ago = instant(current_day - timedelta(days=7))
-    receipts = receipt_checks(db, week_ago, instant(current_day + timedelta(days=1)))
-    divergent = sum(1 for r in receipts if r['status'] != 'ok')
+        age = check['age_days']
+        when = 'hoje' if age == 0 else 'ontem' if age == 1 else f'há {age} dias'
+        calendar = ('attention' if check['overdue'] else 'ok',
+                    f"Averiguado {when}. {len(window['active_courses'])} curso(s) em andamento; {len(window['events'])} evento(s) nos próximos 14 dias.")
+    week_ago = day_start(current_day - timedelta(days=7))
+    divergent = sum(1 for r in receipt_checks(db, week_ago, day_start(current_day + timedelta(days=1))) if not r['ok'])
     orders = len(pending_orders(db))
-    count_age = (current_day - last_count.astimezone(TZ).date()).days if last_count else None
-    parts = [f'{orders} pedido(s) em aberto', f'{divergent} nota(s) a verificar nos últimos 7 dias',
-             f'última contagem física há {count_age} dia(s)' if last_count else 'nenhuma contagem física registrada']
-    status = 'pending' if last_count is None else 'attention' if divergent or count_age > INVENTORY_INTERVAL_DAYS else 'ok'
-    result.append({'id': 'purchases', 'page': 'purchases', 'title': 'Compras, notas e inventário', 'status': status, 'detail': ('; '.join(parts) + '.')[:1].upper() + ('; '.join(parts) + '.')[1:]})
-    days = cash_days(db, current_day - timedelta(days=7), current_day - timedelta(days=1))
-    pending = [d for d in days if d['state'] in {'pending', 'outdated'}]
-    result.append({'id': 'cash', 'page': 'cash', 'title': 'Caixa: aberturas e fechamentos', 'status': 'attention' if pending else 'ok',
-                   'detail': (f"{len(pending)} dia(s) aguardando conferência: " + ', '.join(ddmm(d['day']) for d in pending) + '.') if pending else 'Últimos 7 dias conferidos ou sem movimento previsto.'})
+    last_count = db.scalar(select(func.max(InventoryCount.counted_at)))
+    age = (current_day - last_count.astimezone(TZ).date()).days if last_count else None
+    purchases = ('pending' if last_count is None else 'attention' if divergent or age > INVENTORY_INTERVAL_DAYS else 'ok',
+                 f"{orders} pedido(s) com itens a receber; {divergent} nota(s) com divergência em 7 dias; "
+                 + (f'última contagem há {age} dia(s).' if last_count else 'nenhuma contagem de estoque registrada.'))
+    pending = [d for d in cash_days(db, current_day - timedelta(days=7), current_day - timedelta(days=1)) if d['state'] in {'pending', 'outdated'}]
+    cash = ('attention', f"{len(pending)} dia(s) aguardando conferência: {', '.join(ddmm(d['day']) for d in pending)}.") if pending else ('ok', 'Últimos 7 dias conferidos ou sem movimento previsto.')
     last_week = monday_of(current_day) - timedelta(days=7)
-    saved_report = db.scalar(select(WeeklyReport).where(WeeklyReport.week_start == last_week).order_by(WeeklyReport.version.desc()).limit(1))
-    result.append({'id': 'weekly', 'page': 'weekly', 'title': 'Relatório semanal', 'status': 'ok' if saved_report else 'pending',
-                   'detail': f"Semana de {ddmm(last_week)} entregue em {saved_report.created_at.astimezone(TZ).strftime('%d/%m')}." if saved_report else f"Preparar e registrar o relatório da semana de {ddmm(last_week)} a {ddmm(last_week + timedelta(days=6))}."})
-    alerts = expense_alerts(db, current_day - timedelta(days=29), current_day)
-    result.append({'id': 'expenses', 'page': 'finance', 'title': 'Gastos fora do padrão', 'status': 'attention' if alerts['open_count'] else 'ok',
-                   'detail': f"{alerts['open_count']} alerta(s) sem explicação nos últimos 30 dias." if alerts['open_count'] else 'Nenhum alerta pendente nos últimos 30 dias.'})
-    return result
+    report = db.scalar(select(WeeklyReport).where(WeeklyReport.week_start == last_week).order_by(WeeklyReport.version.desc()).limit(1))
+    weekly = ('ok', f"Semana de {ddmm(last_week)} entregue em {report.created_at.astimezone(TZ):%d/%m}.") if report else (
+        'pending', f'Preparar e entregar o relatório da semana de {ddmm(last_week)} a {ddmm(last_week + timedelta(days=6))}.')
+    open_alerts = expense_alerts(db, current_day - timedelta(days=29), current_day)['open_count']
+    expenses = ('attention', f'{open_alerts} alerta(s) sem explicação nos últimos 30 dias.') if open_alerts else ('ok', 'Nenhum alerta pendente nos últimos 30 dias.')
+    rows = [('calendar', 'school', 'Calendário da escola', calendar), ('purchases', 'purchases', 'Compras, notas e estoque', purchases),
+            ('cash', 'cash', 'Caixa: aberturas e fechamentos', cash), ('weekly', 'weekly', 'Relatório semanal', weekly), ('expenses', 'expenses', 'Gastos fora do padrão', expenses)]
+    return [{'id': key, 'page': page, 'title': title, 'status': status, 'detail': detail} for key, page, title, (status, detail) in rows]

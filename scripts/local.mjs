@@ -57,8 +57,8 @@ try {
   const env = { ...cfg.values, PYTHONUNBUFFERED: '1', PYTHONUTF8: '1' };
   await migrate(env);
   if (!/^(0|false|off|no|n|f)$/i.test(String(cfg.values.CANTINA_AUTO_BACKUP || '1'))) {
-    try { await run(python, ['-m', 'app.backup_cli', 'create', '--if-due'], { cwd: path.join(root, 'backend'), env }); }
-    catch { console.warn('O backup diário não foi concluído. Verifique a tela Backup e recuperação. A aplicação continuará disponível.'); }
+    try { await run(python, ['-m', 'app.backup', 'create', '--if-due'], { cwd: path.join(root, 'backend'), env }); }
+    catch { console.warn('A cópia de segurança diária não foi concluída. A aplicação continuará disponível.'); }
   }
   launch(python, ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', String(cfg.apiPort)], path.join(root, 'backend'), env);
   await waitFor(`http://127.0.0.1:${cfg.apiPort}/api/health/database`);

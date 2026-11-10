@@ -1,71 +1,92 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { FormEvent, ReactNode } from 'react';
+import type { ReactNode, SyntheticEvent } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { api } from '../api';
 
 export function useRemote<T>(path: string) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
   const refresh = useCallback(async () => {
-    setLoading(true);
     try { setData(await api<T>(path)); setError(''); }
     catch (e) { setError(e instanceof Error ? e.message : 'Falha ao carregar.'); }
-    finally { setLoading(false); }
   }, [path]);
   useEffect(() => { void refresh(); }, [refresh]);
-  return { data, error, loading, refresh };
+  return { data, error, refresh };
 }
 
-export const money = (cents: number | string) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(cents) / 100);
-export function cents(value: unknown) { const text = String(value).replace(',', '.'); if (!/^\d+(\.\d{1,2})?$/.test(text)) throw new Error('Informe o valor em reais com até duas casas decimais.'); const [whole, part = ''] = text.split('.'); return Number(whole) * 100 + Number(part.padEnd(2, '0')); }
-export const count = (value: string | number) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 }).format(Number(value));
+export const money = (value: number | string) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) / 100);
+export const count = (value: number | string) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 }).format(Number(value));
 export const dateTime = (value?: string | null) => value ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(new Date(value)) : '—';
-export function localNow() { return new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 16); }
-export function instant(value: unknown) { return `${String(value)}:00-03:00`; }
-export type Values = Record<string, string | boolean>;
-export type Field = { name: string; label: string; type?: string; required?: boolean; options?: { value: string | number; label: string }[]; value?: string; min?: string | number; max?: string | number; step?: string; hint?: string };
-export function RecordForm({ title, fields, onSubmit, submit = 'Salvar registro', successMessage = 'Registro salvo.' }: { title: string; fields: Field[]; onSubmit: (values: Values) => Promise<void>; submit?: string; successMessage?: string }) {
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState(false);
-  async function save(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault(); const form = e.currentTarget;
-    const values: Values = Object.fromEntries(new FormData(form).entries()) as Values;
-    fields.filter(f => f.type === 'checkbox').forEach(f => { values[f.name] = new FormData(form).has(f.name); });
-    setBusy(true); setMessage('');
-    try { await onSubmit(values); form.reset(); setError(false); setMessage(successMessage); }
-    catch (e) { setError(true); setMessage(e instanceof Error ? e.message : 'Não foi possível salvar.'); }
-    finally { setBusy(false); }
-  }
-  return <details className="panel record-form"><summary>{title}<span>Adicionar / editar</span></summary><form onSubmit={save}><div className="operation-fields">{fields.map(f => <label key={f.name}>{f.label}{f.options ? <select name={f.name} required={f.required !== false} defaultValue={f.value || ''}><option value="">Selecione…</option>{f.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select> : f.type === 'textarea' ? <textarea name={f.name} required={f.required !== false} defaultValue={f.value} maxLength={1000} /> : <input name={f.name} type={f.type || 'text'} defaultValue={f.value} required={f.type !== 'checkbox' && f.required !== false} min={f.min} max={f.max} step={f.step || (f.type === 'number' ? '0.01' : undefined)} maxLength={f.type === 'text' || !f.type ? 300 : undefined} />}{f.hint && <small>{f.hint}</small>}</label>)}</div><div className="operation-form-foot">{message && <span role={error ? 'alert' : 'status'} className={error ? 'form-error' : 'success-message'}>{message}</span>}<button className="button primary" disabled={busy} type="submit">{busy && <Loader2 className="spin" size={15} />}{busy ? 'Salvando…' : submit}</button></div></form></details>;
+export const shortDate = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+/** Data e hora local (Brasília, UTC−3) no formato do campo datetime-local. */
+export const localNow = () => new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 16);
+export const instant = (value: unknown) => `${String(value)}:00-03:00`;
+export function shiftDate(iso: string, days: number) { const d = new Date(`${iso}T12:00:00`); d.setDate(d.getDate() + days); return d.toISOString().slice(0, 10); }
+export function cents(value: unknown) {
+  const text = String(value ?? '').trim().replace(',', '.');
+  if (!/^\d+(\.\d{1,2})?$/.test(text)) throw new Error('Informe o valor em reais com até duas casas decimais.');
+  const [whole, part = ''] = text.split('.');
+  return Number(whole) * 100 + Number(part.padEnd(2, '0'));
 }
-export function DataTable<T>({ title, rows, columns }: { title: string; rows: T[]; columns: { label: string; render: (row: T) => ReactNode }[] }) {
-  return <section className="panel data-panel"><h2>{title}<span>{rows.length} registros</span></h2><div className="table-scroll"><table><thead><tr>{columns.map(c => <th key={c.label}>{c.label}</th>)}</tr></thead><tbody>{rows.length ? rows.map((row, index) => <tr key={index}>{columns.map(c => <td key={c.label}>{c.render(row)}</td>)}</tr>) : <tr><td colSpan={columns.length} className="empty-cell">Nenhum registro. Cadastre as informações reais da cantina para começar.</td></tr>}</tbody></table></div></section>;
-}
-export function ModuleHeading({ title, description, onRefresh }: { title: string; description: string; onRefresh: () => void }) {
-  return <div className="page-heading"><div><span className="eyebrow">GESTÃO DA CANTINA</span><h1>{title}</h1><p>{description}</p></div><button className="button secondary" onClick={onRefresh}><RefreshCw size={15} />Atualizar</button></div>;
-}
-export function ErrorNote({ errors }: { errors: (string | undefined)[] }) {
-  const found = errors.filter(Boolean); return found.length ? <div className="error-banner" role="alert">{[...new Set(found)].join(' ')}</div> : null;
-}
-export async function save(path: string, data: unknown, refresh: () => Promise<unknown>, method = 'POST') {
+export async function send(path: string, data: unknown, refresh: () => Promise<unknown>, method = 'POST') {
   await api(path, { method, body: JSON.stringify(data) }); await refresh();
 }
 
-export type LineDraft = { item_id: string; quantity: string; price: string; lot_code?: string; expiry?: string };
-export function LinesInput({ value, onChange, options, priceLabel = 'Preço por unidade (R$)', lots = false, showPrice = true }: { value: LineDraft[]; onChange: (value: LineDraft[]) => void; options: { value: number; label: string }[]; priceLabel?: string; lots?: boolean; showPrice?: boolean }) {
-  function update(index: number, field: string, text: string) { onChange(value.map((line, i) => i === index ? { ...line, [field]: text } : line)); }
-  return <div className="line-editor">{value.map((line, index) => <div className="line-entry" key={index}><label>Item<select required value={line.item_id} onChange={e => update(index, 'item_id', e.target.value)}><option value="">Selecione…</option>{options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></label><label>Quantidade<input required type="number" min="0.001" step="0.001" value={line.quantity} onChange={e => update(index, 'quantity', e.target.value)} /></label>{showPrice && <label>{priceLabel}<input required type="number" min="0" step="0.01" value={line.price} onChange={e => update(index, 'price', e.target.value)} /></label>}{lots && <><label>Lote<input value={line.lot_code || ''} onChange={e => update(index, 'lot_code', e.target.value)} /></label><label>Validade<input type="date" value={line.expiry || ''} onChange={e => update(index, 'expiry', e.target.value)} /></label></>}<button type="button" className="mini-action" disabled={value.length === 1} onClick={() => onChange(value.filter((_, i) => i !== index))}>Remover</button></div>)}<button type="button" className="button secondary" onClick={() => onChange([...value, { item_id: '', quantity: '1', price: '0' }])}>Adicionar item</button></div>;
+export function PageHeading({ title, description, onRefresh }: { title: string; description: string; onRefresh?: () => void }) {
+  return <div className="page-heading no-print"><div><h1>{title}</h1><p>{description}</p></div>{onRefresh && <button className="button secondary" onClick={onRefresh}><RefreshCw size={15} />Atualizar</button>}</div>;
 }
 
-export function Composer({ title, children, onSubmit, submit = 'Salvar' }: { title: string; children: ReactNode; onSubmit: (data: FormData) => Promise<void>; submit?: string }) {
-  const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [error, setError] = useState(false);
-  async function saveForm(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault(); const form = e.currentTarget; setBusy(true); setMessage('');
-    try { await onSubmit(new FormData(form)); setError(false); setMessage('Registro salvo.'); }
-    catch (e) { setError(true); setMessage(e instanceof Error ? e.message : 'Falha ao salvar.'); }
+export function ErrorNote({ errors }: { errors: (string | undefined)[] }) {
+  const found = [...new Set(errors.filter(Boolean))];
+  return found.length ? <div className="error-banner" role="alert">{found.join(' ')}</div> : null;
+}
+
+type Values = Record<string, string | boolean>;
+export type Field = { name: string; label: string; type?: string; required?: boolean; options?: { value: string | number; label: string }[]; value?: string; min?: string | number; step?: string; hint?: string };
+
+/** Formulário recolhível: os valores chegam como texto; caixas de seleção como verdadeiro/falso. */
+export function RecordForm({ title, fields, onSubmit, submit = 'Salvar' }: { title: string; fields: Field[]; onSubmit: (values: Values) => Promise<void>; submit?: string }) {
+  return <FormShell title={title} submit={submit} onSubmit={async form => {
+    const values: Values = Object.fromEntries(new FormData(form).entries()) as Values;
+    fields.filter(f => f.type === 'checkbox').forEach(f => { values[f.name] = new FormData(form).has(f.name); });
+    await onSubmit(values); form.reset();
+  }}><div className="fields">{fields.map(f => <label key={f.name}>{f.label}
+    {f.options ? <select name={f.name} required={f.required !== false} defaultValue={f.value || ''}><option value="">Selecione…</option>{f.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
+      : f.type === 'textarea' ? <textarea name={f.name} required={f.required !== false} defaultValue={f.value} maxLength={1000} />
+      : <input name={f.name} type={f.type || 'text'} defaultValue={f.value} required={f.type !== 'checkbox' && f.required !== false} min={f.min} step={f.step || (f.type === 'number' ? '0.01' : undefined)} />}
+    {f.hint && <small>{f.hint}</small>}</label>)}</div></FormShell>;
+}
+
+/** Formulário recolhível com conteúdo livre. */
+export function FormShell({ title, children, onSubmit, submit = 'Salvar' }: { title: string; children: ReactNode; onSubmit: (form: HTMLFormElement) => Promise<void>; submit?: string }) {
+  const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [failed, setFailed] = useState(false);
+  async function handle(e: SyntheticEvent<HTMLFormElement>) {
+    e.preventDefault(); setBusy(true); setMessage('');
+    try { await onSubmit(e.currentTarget); setFailed(false); setMessage('Registro salvo.'); }
+    catch (error) { setFailed(true); setMessage(error instanceof Error ? error.message : 'Não foi possível salvar.'); }
     finally { setBusy(false); }
   }
-  return <details className="panel record-form"><summary>{title}<span>Abrir formulário</span></summary><form onSubmit={saveForm}>{children}<div className="operation-form-foot"><span role={error ? 'alert' : 'status'} className={error ? 'form-error' : 'success-message'}>{message}</span><button className="button primary" type="submit" disabled={busy}>{busy ? 'Salvando…' : submit}</button></div></form></details>;
+  return <details className="panel record-form"><summary>{title}</summary><form onSubmit={handle}>{children}<div className="form-foot"><span role={failed ? 'alert' : 'status'} className={failed ? 'danger-text' : 'success-text'}>{message}</span><button className="button primary" type="submit" disabled={busy}>{busy && <Loader2 className="spin" size={15} />}{busy ? 'Salvando…' : submit}</button></div></form></details>;
+}
+
+export function DataTable<T>({ title, rows, columns, note }: { title: string; rows: T[]; columns: { label: string; render: (row: T) => ReactNode }[]; note?: ReactNode }) {
+  return <section className="panel table-panel"><h2>{title}<span>{note ?? `${rows.length} registro(s)`}</span></h2><div className="table-scroll"><table><thead><tr>{columns.map(c => <th key={c.label}>{c.label}</th>)}</tr></thead>
+    <tbody>{rows.length ? rows.map((row, i) => <tr key={i}>{columns.map(c => <td key={c.label}>{c.render(row)}</td>)}</tr>) : <tr><td colSpan={columns.length} className="empty-cell">Nenhum registro ainda.</td></tr>}</tbody></table></div></section>;
+}
+
+export type LineDraft = { item_id: string; quantity: string; price: string };
+export const emptyLine = (): LineDraft => ({ item_id: '', quantity: '1', price: '0' });
+
+export function LinesInput({ value, onChange, options, priceLabel }: { value: LineDraft[]; onChange: (value: LineDraft[]) => void; options: { value: number; label: string }[]; priceLabel: string }) {
+  const update = (index: number, field: keyof LineDraft, text: string) => onChange(value.map((line, i) => i === index ? { ...line, [field]: text } : line));
+  return <div className="line-editor">{value.map((line, index) => <div className="line-entry" key={index}>
+    <label>Item<select required value={line.item_id} onChange={e => update(index, 'item_id', e.target.value)}><option value="">Selecione…</option>{options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></label>
+    <label>Quantidade<input required type="number" min="0.001" step="0.001" value={line.quantity} onChange={e => update(index, 'quantity', e.target.value)} /></label>
+    <label>{priceLabel}<input required type="number" min="0" step="0.01" value={line.price} onChange={e => update(index, 'price', e.target.value)} /></label>
+    <button type="button" className="mini-button" disabled={value.length === 1} onClick={() => onChange(value.filter((_, i) => i !== index))}>Remover</button>
+  </div>)}<button type="button" className="button secondary" onClick={() => onChange([...value, emptyLine()])}>Adicionar item</button></div>;
+}
+
+export function Badge({ tone, children }: { tone: 'ok' | 'warn' | 'danger' | 'info' | 'muted'; children: ReactNode }) {
+  return <span className={`badge ${tone}`}>{children}</span>;
 }
