@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Protótipo atualizado · Cantina em Dia</title>
+<style>body{font:18px/1.6 system-ui,sans-serif;max-width:680px;margin:60px auto;padding:20px;color:#243a32;background:#f5f4ee}a{display:inline-flex;min-height:48px;align-items:center;color:#245940}</style>
+</head>
+<body>
+<h1>O protótipo agora está no frontend React</h1>
+<p>A versão atual tem dados por cenário, etapas no endereço e detalhes dos registros.</p>
+<a id="prototype-link" href="http://127.0.0.1:5173/proposta?cenario=rotina#home">Abrir o protótipo atualizado →</a>
+<p>Os exemplos continuam separados do banco real. Para iniciar o frontend: <code>npm.cmd start</code> na pasta do projeto.</p>
+<script>
+const scenario=new URLSearchParams(location.search).get('cenario');
+const url=new URL('http://127.0.0.1:5173/proposta');
+url.searchParams.set('cenario',scenario==='primeiro-uso'?'primeiro-uso':'rotina');
+const hash=location.hash.slice(1);
+url.hash=hash==='daily'?'daily/start':hash||'home';
+document.getElementById('prototype-link').href=url.href;
+location.replace(url.href);
+</script>
+</body>
+</html>
