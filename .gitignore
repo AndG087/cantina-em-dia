@@ -19,3 +19,6 @@ htmlcov/
 *.sql.gz
 .DS_Store
 
+
+# Documentos da cantina (contrato, salários, CPFs): ficam só neste computador
+contratos/
